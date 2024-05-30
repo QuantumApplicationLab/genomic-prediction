@@ -410,7 +410,7 @@ def uvl_vector(l, A, r, w, rows, sigma, row_norms, A_Frobenius):
     u_approx = np.zeros(m)
     v_approx = np.zeros(n)
     # building approximated v^l vector
-   factor = A_Frobenius / (np.sqrt(r) * sigma[l])
+    factor = A_Frobenius / (np.sqrt(r) * sigma[l])
     for s in range(r):
         v_approx[:] += (A[rows[s], :] / np.sqrt(row_norms[rows[s]])) * w[s, l]
     v_approx[:] = v_approx[:] * factor

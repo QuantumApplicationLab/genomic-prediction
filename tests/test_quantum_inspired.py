@@ -19,10 +19,6 @@ def test_qi():
     x_sol = np.load(Path(path, "solsnp.npy"))
     P = np.load(Path(path, "m1.npy"))
 
-    # Run classical algorithms
-    x_fkv = qi.linear_eqs_fkv(P @ A, P @ b, r, c, rank)
-    x_cg, exit_code = cg(A, b, M=P, atol=1e-5)
-
     # Run (classical) quantum-inspired algorithm
     rank = 3
     r = 200
@@ -30,5 +26,9 @@ def test_qi():
     n_samples = 50
     n_comp_x = 50
     sampled_comp_qi, x_qi = qi.linear_eqs(A, b, r, c, rank, n_samples, n_comp_x)
+
+    # Run classical algorithms
+    x_fkv = qi.linear_eqs_fkv(P @ A, P @ b, r, c, rank)
+    x_cg, exit_code = cg(A, b, M=P, atol=1e-5)
 
     assert True
