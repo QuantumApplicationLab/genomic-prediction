@@ -70,12 +70,13 @@ def sample_C(A, m, n, r, c, row_norms, LS_prob_rows, LS_prob_columns, A_Frobeniu
         A_Frobenius (float): Frobenius norm of matrix A
 
     Returns:
-        tuple: Tuple containing the singular values (sigma), left- (w) and right-singular vectors (vh) of matrix C,
-        the sampled rows (rows), the column LS prob. distribution (LS_prob_columns_R) of matrix R and split running
-        times for the FKV algorithm.
+        tuple: Tuple containing
+        the singular values (sigma),
+        left- (w) and right-singular vectors (vh) of matrix C,
+        the sampled rows (rows),
+        the column LS prob. distribution (LS_prob_columns_R) of matrix R
     """
 
-    tic = time.time()
     # sample row indices from row length_square distribution
     rows = np.random.choice(m, r, replace=True, p=LS_prob_rows)
 
@@ -86,9 +87,6 @@ def sample_C(A, m, n, r, c, row_norms, LS_prob_rows, LS_prob_columns, A_Frobeniu
         i = np.random.choice(rows, replace=True)
         # sample column from length-square distribution of row A[i]
         columns[j] = np.random.choice(n, 1, p=LS_prob_columns[i])
-
-    toc = time.time()
-    rt_sampling_C = toc - tic
 
     # building the lenght-squared distribution to sample columns from matrix R
     R_row = np.zeros(n)
@@ -101,7 +99,6 @@ def sample_C(A, m, n, r, c, row_norms, LS_prob_rows, LS_prob_columns, A_Frobeniu
         R_row_norm = np.abs(la.norm(R_row[:])) ** 2
         LS_prob_columns_R[s, :] = [np.abs(k) ** 2 / R_row_norm for k in R_row[:]]
 
-    tic = time.time()
     # creates empty array for R and C matrices. We treat R as r x c here, since we only need columns later
     R_C = np.zeros((r, c))
     C = np.zeros((r, c))
@@ -126,17 +123,10 @@ def sample_C(A, m, n, r, c, row_norms, LS_prob_rows, LS_prob_columns, A_Frobeniu
     for t in range(c):
         C[:, t] = R_C[:, t] * (A_Frobenius / np.sqrt(column_norms[t])) / np.sqrt(c)
 
-    toc = time.time()
-    rt_building_C = toc - tic
-
-    tic = time.time()
     # Computing the SVD of sampled C matrix
     w, sigma, vh = la.svd(C, full_matrices=False)
 
-    toc = time.time()
-    rt_svd_C = toc - tic
-
-    return w, rows, sigma, vh, LS_prob_columns_R, rt_sampling_C, rt_building_C, rt_svd_C
+    return w, rows, sigma, vh, LS_prob_columns_R
 
 
 def sample_me_lsyst(
@@ -735,8 +725,10 @@ def linear_eqs_portopt(A, mu, r, c, rank, Nsamples, NcompX):
 
 
 def linear_eqs_fkv(A, b, r, c, rank):
-    r"""Function to solve the the linear system of equations :math:'A \bm{x} = b' using FKV algorithm
-    and a direct calculation of the coefficients :math: '\lambda_l' and solution vector :math: '\bm{x}'
+    r"""Function to solve the the linear system of equations
+    :math:'A \bm{x} = b' using FKV algorithm
+    and a direct calculation of the coefficients
+    :math: '\lambda_l' and solution vector :math: '\bm{x}'
 
     Args:
         A (array[complex]): rectangular, in general, complex matrix
@@ -746,50 +738,39 @@ def linear_eqs_fkv(A, b, r, c, rank):
         rank (int): rank of matrix A
 
     Returns:
-        array[float]: array containing the components of the solution vector :math: '\bm{x}'
+        array[float]: array containing the components of the
+        solution vector :math: '\bm{x}'
     """
 
     m_rows, n_cols = np.shape(A)
 
-    # 1- Generating LS probability distributions used to sample rows and columns indices of matrix A
-    tic = time.time()
-
+    # Generate LS probability distributions used to sample
+    # row and column indices of matrix A
     LS = ls_probs(m_rows, n_cols, A)
 
-    toc = time.time()
-
-    rt_ls_prob = toc - tic
-
-    # 2- Building matrix C by sampling "r" rows and "c" columns from matrix A and computing SVD of matrix C
-    svd_C = sample_C(A, m_rows, n_cols, r, c, *LS[0:4])
+    # Building matrix C by sampling `r` rows and `c` columns from matrix A
+    # and computing SVD of matrix C
+    svd_C = sample_C(A, m_rows, n_cols, r, c, *LS)
     w = svd_C[0]
+    sampled_rows = svd_C[1]
     sigma = svd_C[2]
-    rt_sampling_C = svd_C[5]
-    rt_building_C = svd_C[6]
-    rt_svd_C = svd_C[7]
 
-    # Reconstruction of the right-singular vectors of matrix A
+    # Reconstruct of the right-singular vectors of matrix A
     ul_approx = np.zeros((m_rows, rank))
     vl_approx = np.zeros((n_cols, rank))
     for l in range(rank):
         ul_approx[:, l], vl_approx[:, l] = uvl_vector(
-            l, A, r, w, svd_C[1], sigma, LS[0], LS[3]
+            l, A, r, w, sampled_rows, sigma, LS[0], LS[3]
         )
 
-    # 3- Direct calculation of matrix elements lambdas[rank] = <v^l|A^dagger|b>
-    tic = time.time()
+    # Directly calculate matrix elements lambdas[rank] = <v^l|A^dagger|b>
     lambdas = np.zeros(rank)
     for l in range(rank):
         lambdas[l] = np.transpose(vl_approx[:, l]) @ np.transpose(A) @ b
-    toc = time.time()
-    rt_dcalc_lambdas = toc - tic
 
-    # 4- Direct calculation of the approximate vector solution \tilde X
-    tic = time.time()
+    # Directly calculate approximate solution vector
     x_tilde = np.zeros(n_cols)
     for l in range(rank):
         x_tilde[:] += (lambdas[l] / sigma[l] ** 2) * vl_approx[:, l]
-    toc = time.time()
-    rt_dcalc_x = toc - tic
 
     return x_tilde

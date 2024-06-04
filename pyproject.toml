@@ -24,7 +24,11 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-dependencies = []
+dependencies = [
+    "numpy",
+    "scipy",
+    "plotext",
+]
 description = "Quantum algorithms for genomic prediction."
 keywords = [
     "quantum algorithms",
