@@ -18,13 +18,14 @@ def find_top_indices(x: ArrayLike, top_size: int) -> NDArray:
 def load_data():
     """Load test data."""
     # Define path to data
-    path = Path(Path(__file__).parent.resolve(), "data")
+    path_low_rank = Path(Path(__file__).parent.resolve(), "data/100")
+    path_full_rank = Path(Path(__file__).parent.resolve(), "data/full_rank")
 
     # Load data
-    A = np.load(Path(path, "lhssnp.npy"))
-    b = np.load(Path(path, "rhssnp.npy"))
-    x_sol = np.load(Path(path, "solsnp.npy"))
-    P = np.load(Path(path, "m1.npy"))
+    A = np.load(Path(path_low_rank, "lhssvd.npy"))
+    b = np.load(Path(path_low_rank, "rhssvd.npy"))
+    x_sol = np.load(Path(path_full_rank, "solsnp.npy"))
+    P = np.load(Path(path_low_rank, "msvd.npy"))
 
     # Define parameters for analysis
     top_percent = 0.01
