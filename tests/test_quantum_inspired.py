@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from numpy.typing import ArrayLike
+from numpy.linalg import matrix_rank
 from numpy.typing import NDArray
 from scipy.sparse.linalg import cg
 from genomic_prediction import quantum_inspired as qi
@@ -18,7 +19,7 @@ def find_top_indices(x: ArrayLike, top_size: int) -> NDArray:
 def load_data():
     """Load test data."""
     # Define path to data
-    path_low_rank = Path(Path(__file__).parent.resolve(), "data/100")
+    path_low_rank = Path(Path(__file__).parent.resolve(), "data/900")
     path_full_rank = Path(Path(__file__).parent.resolve(), "data/full_rank")
 
     # Load data
@@ -27,8 +28,12 @@ def load_data():
     x_sol = np.load(Path(path_full_rank, "solsnp.npy"))
     P = np.load(Path(path_low_rank, "msvd.npy"))
 
+    # Print rank of A
+    # print("Computing rank of coefficient matrix. Be patient!")
+    # print(f"Rank of coefficient matrix: {matrix_rank(A)}")
+
     # Define parameters for analysis
-    top_percent = 0.01
+    top_percent = 0.005
     size = x_sol.size
     top_size = int(top_percent * size)
 

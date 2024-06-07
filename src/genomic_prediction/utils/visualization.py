@@ -8,22 +8,22 @@ def plot_solution(x_known: NDArray, best_idx: NDArray, top_size: int) -> None:
     # Squeeze array
     x_known = np.squeeze(x_known)
 
+    # Define colors for plotting
+    colors = np.array(x_known.size * ["blue"])
+    colors[best_idx] = "red"
+
     # Find mapping from index in sorted array to original index
-    sorted_to_original_idx = np.flip(np.argsort(x_known))
+    sort_idx = np.flip(np.argsort(x_known))
 
     # Sort in descending order
-    sorted_x_known = x_known[sorted_to_original_idx]
-
-    # Find mapping from original index to index in sorted array
-    original_to_sorted_idx = np.zeros(x_known.size, dtype=int)
-    original_to_sorted_idx[sorted_to_original_idx] = range(x_known.size)
+    sorted_x_known = x_known[sort_idx]
+    sorted_colors = colors[sort_idx]
 
     # Plot
-    subset = 3 * top_size
-    plt.bar(range(sorted_x_known.size), sorted_x_known[:subset], color="skyblue")
-    plt.bar(
-        original_to_sorted_idx[best_idx][:subset],
-        sorted_x_known[original_to_sorted_idx[best_idx]][:subset],
-        color="red",
-    )
+    ignore = 4
+    subset = 4 * top_size
+    plt.plot(sorted_x_known[ignore:subset])
+    for idx, value in enumerate(sorted_colors[ignore:subset]):
+        if value == "red":
+            plt.vline(idx, value)
     plt.show()
