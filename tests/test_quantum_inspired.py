@@ -69,3 +69,7 @@ def test_qi():
     plot_solution(x_sol, x_idx, top_size)
 
     assert True
+
+
+if __name__ == "__main__":
+    test_cg()
