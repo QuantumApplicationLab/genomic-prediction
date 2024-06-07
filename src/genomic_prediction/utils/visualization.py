@@ -19,9 +19,11 @@ def plot_solution(x_known: NDArray, best_idx: NDArray, top_size: int) -> None:
     original_to_sorted_idx[sorted_to_original_idx] = range(x_known.size)
 
     # Plot
-    subset_sorted_x_known = sorted_x_known[: 4 * top_size]
-    plt.scatter(subset_sorted_x_known)
-    for idx in best_idx:
-        plt.vline(original_to_sorted_idx[idx] + 1)
-
+    subset = 3 * top_size
+    plt.bar(range(sorted_x_known.size), sorted_x_known[:subset], color="skyblue")
+    plt.bar(
+        original_to_sorted_idx[best_idx][:subset],
+        sorted_x_known[original_to_sorted_idx[best_idx]][:subset],
+        color="red",
+    )
     plt.show()
