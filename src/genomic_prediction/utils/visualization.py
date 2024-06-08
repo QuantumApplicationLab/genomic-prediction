@@ -27,3 +27,4 @@ def plot_solution(x_known: NDArray, best_idx: NDArray, top_size: int) -> None:
         if value == "red":
             plt.vline(idx, value)
     plt.show()
+    plt.clear_figure()

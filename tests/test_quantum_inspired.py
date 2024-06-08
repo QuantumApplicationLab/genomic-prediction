@@ -2,11 +2,14 @@
 
 from pathlib import Path
 import numpy as np
+import plotext as plt
 import pytest
+from numpy.linalg import eigvalsh
 from numpy.typing import ArrayLike
-from numpy.linalg import matrix_rank
 from numpy.typing import NDArray
+from scipy.sparse import diags
 from scipy.sparse.linalg import cg
+from scipy.sparse.linalg import eigsh
 from genomic_prediction import quantum_inspired as qi
 from genomic_prediction.utils.visualization import plot_solution
 
@@ -16,21 +19,17 @@ def find_top_indices(x: ArrayLike, top_size: int) -> NDArray:
     return np.flip(np.argsort(x))[:top_size]
 
 
-def load_data():
+def load_data(rank_genotype=1000):
     """Load test data."""
     # Define path to data
-    path_low_rank = Path(Path(__file__).parent.resolve(), "data/900")
-    path_full_rank = Path(Path(__file__).parent.resolve(), "data/full_rank")
+    path_low_rank = Path(Path(__file__).parent.resolve(), "data", f"{rank_genotype}")
+    path_full_rank = Path(Path(__file__).parent.resolve(), "data", "full_rank")
 
     # Load data
     A = np.load(Path(path_low_rank, "lhssvd.npy"))
     b = np.load(Path(path_low_rank, "rhssvd.npy"))
     x_sol = np.load(Path(path_full_rank, "solsnp.npy"))
     P = np.load(Path(path_low_rank, "msvd.npy"))
-
-    # Print rank of A
-    # print("Computing rank of coefficient matrix. Be patient!")
-    # print(f"Rank of coefficient matrix: {matrix_rank(A)}")
 
     # Define parameters for analysis
     top_percent = 0.005
@@ -40,12 +39,69 @@ def load_data():
     return A, b, x_sol, P, top_size
 
 
+def test_data_consistency():
+    """Check if data is consistent."""
+    path1 = Path(Path(__file__).parent.resolve(), "data", "full_rank")
+    A_to_check1 = np.load(Path(path1, "lhssnp.npy"))
+    path2 = Path(Path(__file__).parent.resolve(), "data", "1000")
+    A_to_check2 = np.load(Path(path2, "lhssvd.npy"))
+
+    assert np.allclose(A_to_check1, A_to_check2)
+
+
+def test_coefficient_matrix():
+    """Test assumptions on coefficient matrix."""
+    # Load matrix
+    A, _, _, _, _ = load_data()
+
+    # Check if A is symmetric
+    assert np.allclose(A, A.T)
+
+    # Check if A is positive semi-definite
+    eigenvalues = np.flip(eigvalsh(A))
+    tol = 1e-8
+    assert np.all(eigenvalues >= -tol)
+
+    # Plot eigenvalues
+    plt.plot(np.abs(eigenvalues))
+    plt.show()
+    plt.clear_figure()
+
+    assert True
+
+
 def test_cg():
     """Test CG."""
     A, b, x_sol, P, top_size = load_data()
     x_cg, _ = cg(A, b, M=P, atol=1e-5)
     x_idx = find_top_indices(x_cg, top_size)
     plot_solution(x_sol, x_idx, top_size)
+
+    assert True
+
+
+def test_cg_multiple_ranks():
+    """Test CG."""
+    A, b, x_sol, P, top_size = load_data()
+    # for k in range(x_sol.size, 500, -500):
+    for k in [x_sol.size]:
+        print(f"Rank: {k}")
+
+        # Compute low-rank approximation of A
+        if k == x_sol.size:
+            A_k = A
+            P_k = P
+        else:
+            eigenvalues, eigenvectors = eigsh(A, k=k)
+            A_k = eigenvectors @ diags(eigenvalues) @ eigenvectors.T
+            P_k = diags(np.diagonal(A))
+
+        # Solve linear system
+        x_cg, _ = cg(A_k, b, M=P_k, atol=1e-5)
+        x_idx = find_top_indices(x_cg, top_size)
+
+        # Plot
+        plot_solution(x_sol, x_idx, top_size)
 
     assert True
 
@@ -78,4 +134,4 @@ def test_qi():
 
 
 if __name__ == "__main__":
-    test_cg()
+    test_cg_multiple_ranks()
