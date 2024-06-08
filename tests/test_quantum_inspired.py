@@ -83,8 +83,7 @@ def test_cg():
 def test_cg_multiple_ranks():
     """Test CG."""
     A, b, x_sol, P, top_size = load_data()
-    # for k in range(x_sol.size, 500, -500):
-    for k in [x_sol.size]:
+    for k in range(x_sol.size, 500, -500):
         print(f"Rank: {k}")
 
         # Compute low-rank approximation of A
