@@ -4,11 +4,13 @@ from pathlib import Path
 import numpy as np
 import plotext as plt
 import pytest
-from numpy.linalg import eigvalsh, solve
+from numpy.linalg import eigvalsh
+from numpy.linalg import solve
 from numpy.typing import ArrayLike
 from numpy.typing import NDArray
 from scipy.sparse import diags
-from scipy.sparse.linalg import cg, eigsh
+from scipy.sparse.linalg import cg
+from scipy.sparse.linalg import eigsh
 from genomic_prediction import quantum_inspired as qi
 from genomic_prediction.utils.visualization import plot_solution
 
@@ -134,7 +136,7 @@ def test_qi():
 def test_direct_method():
     """Test direct method."""
     A, b, x_sol, P, top_size = load_data()
-    x_dm = solve(P @ A, P @ b)  # , assume_a="sym")
+    x_dm = solve(P @ A, P @ b)
     x_dm = np.squeeze(x_dm)
     x_idx = find_top_indices(x_dm, top_size)
     plot_solution(x_sol, x_idx, top_size)
@@ -158,7 +160,7 @@ def test_direct_method_multiple_ranks():
             P_k = diags(np.diagonal(A))
 
         # Solve linear system
-        x_dm = solve(P_k @ A_k, P_k @ b)  # , assume_a="sym")
+        x_dm = solve(P_k @ A_k, P_k @ b)
         x_dm = np.squeeze(x_dm)
         x_idx = find_top_indices(x_dm, top_size)
 
