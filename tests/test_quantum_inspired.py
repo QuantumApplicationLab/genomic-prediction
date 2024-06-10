@@ -5,12 +5,12 @@ import numpy as np
 import plotext as plt
 import pytest
 from numpy.linalg import eigvalsh
-from numpy.linalg import solve
 from numpy.typing import ArrayLike
 from numpy.typing import NDArray
+from scipy.linalg import eigh
 from scipy.sparse import diags
 from scipy.sparse.linalg import cg
-from scipy.sparse.linalg import eigsh
+from sklearn.linear_model import Ridge
 from genomic_prediction import quantum_inspired as qi
 from genomic_prediction.utils.visualization import plot_solution
 
@@ -84,6 +84,8 @@ def test_cg():
 def test_cg_multiple_ranks():
     """Test CG."""
     A, b, x_sol, P, top_size = load_data()
+    eigenvalues, eigenvectors = eigh(A)
+
     for k in range(x_sol.size, 500, -500):
         print(f"Rank: {k}")
 
@@ -92,9 +94,8 @@ def test_cg_multiple_ranks():
             A_k = A
             P_k = P
         else:
-            eigenvalues, eigenvectors = eigsh(A, k=k)
-            A_k = eigenvectors @ diags(eigenvalues) @ eigenvectors.T
-            P_k = diags(np.diagonal(A))
+            A_k = eigenvectors[:, -k:] @ diags(eigenvalues[-k:]) @ eigenvectors[:, -k:].T
+            P_k = diags(np.diagonal(A_k))
 
         # Solve linear system
         x_cg, _ = cg(A_k, b, M=P_k, atol=1e-5)
@@ -133,20 +134,24 @@ def test_qi():
     assert True
 
 
-def test_direct_method():
-    """Test direct method."""
+def test_ridge():
+    """Test ridge regression."""
     A, b, x_sol, P, top_size = load_data()
-    x_dm = solve(P @ A, P @ b)
-    x_dm = np.squeeze(x_dm)
-    x_idx = find_top_indices(x_dm, top_size)
+    clf = Ridge(alpha=1, solver="svd", fit_intercept=False)
+    clf.fit(P @ A, P @ b)
+    x_rr = clf.coef_
+    x_rr = np.squeeze(x_rr)
+    x_idx = find_top_indices(x_rr, top_size)
     plot_solution(x_sol, x_idx, top_size)
 
     assert True
 
 
-def test_direct_method_multiple_ranks():
-    """Test CG."""
+def test_ridge_multiple_ranks():
+    """Test ridge regression."""
     A, b, x_sol, P, top_size = load_data()
+    eigenvalues, eigenvectors = eigh(A)
+
     for k in range(x_sol.size, 500, -500):
         print(f"Rank: {k}")
 
@@ -155,14 +160,15 @@ def test_direct_method_multiple_ranks():
             A_k = A
             P_k = P
         else:
-            eigenvalues, eigenvectors = eigsh(A, k=k)
-            A_k = eigenvectors @ diags(eigenvalues) @ eigenvectors.T
-            P_k = diags(np.diagonal(A))
+            A_k = eigenvectors[:, -k:] @ diags(eigenvalues[-k:]) @ eigenvectors[:, -k:].T
+            P_k = diags(np.diagonal(A_k))
 
         # Solve linear system
-        x_dm = solve(P_k @ A_k, P_k @ b)
-        x_dm = np.squeeze(x_dm)
-        x_idx = find_top_indices(x_dm, top_size)
+        clf = Ridge(alpha=1, solver="svd", fit_intercept=False)
+        clf.fit(P_k @ A_k, P_k @ b)
+        x_rr = clf.coef_
+        x_rr = np.squeeze(x_rr)
+        x_idx = find_top_indices(x_rr, top_size)
 
         # Plot
         plot_solution(x_sol, x_idx, top_size)
@@ -171,4 +177,4 @@ def test_direct_method_multiple_ranks():
 
 
 if __name__ == "__main__":
-    test_direct_method()
+    test_ridge_multiple_ranks()
