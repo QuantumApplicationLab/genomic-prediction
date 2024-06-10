@@ -4,12 +4,11 @@ from pathlib import Path
 import numpy as np
 import plotext as plt
 import pytest
-from numpy.linalg import eigvalsh
+from numpy.linalg import eigvalsh, solve
 from numpy.typing import ArrayLike
 from numpy.typing import NDArray
 from scipy.sparse import diags
-from scipy.sparse.linalg import cg
-from scipy.sparse.linalg import eigsh
+from scipy.sparse.linalg import cg, eigsh
 from genomic_prediction import quantum_inspired as qi
 from genomic_prediction.utils.visualization import plot_solution
 
@@ -132,5 +131,42 @@ def test_qi():
     assert True
 
 
+def test_direct_method():
+    """Test direct method."""
+    A, b, x_sol, P, top_size = load_data()
+    x_dm = solve(P @ A, P @ b)  # , assume_a="sym")
+    x_dm = np.squeeze(x_dm)
+    x_idx = find_top_indices(x_dm, top_size)
+    plot_solution(x_sol, x_idx, top_size)
+
+    assert True
+
+
+def test_direct_method_multiple_ranks():
+    """Test CG."""
+    A, b, x_sol, P, top_size = load_data()
+    for k in range(x_sol.size, 500, -500):
+        print(f"Rank: {k}")
+
+        # Compute low-rank approximation of A
+        if k == x_sol.size:
+            A_k = A
+            P_k = P
+        else:
+            eigenvalues, eigenvectors = eigsh(A, k=k)
+            A_k = eigenvectors @ diags(eigenvalues) @ eigenvectors.T
+            P_k = diags(np.diagonal(A))
+
+        # Solve linear system
+        x_dm = solve(P_k @ A_k, P_k @ b)  # , assume_a="sym")
+        x_dm = np.squeeze(x_dm)
+        x_idx = find_top_indices(x_dm, top_size)
+
+        # Plot
+        plot_solution(x_sol, x_idx, top_size)
+
+    assert True
+
+
 if __name__ == "__main__":
-    test_cg_multiple_ranks()
+    test_direct_method()
