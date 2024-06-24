@@ -20,6 +20,9 @@ def plot_solution(x_known: NDArray, best_idx: NDArray, top_size: int) -> None:
     sorted_colors = colors[sort_idx]
 
     # Plot
+    n_matches = np.sum(sorted_colors[:top_size] == "red")
+    print(f"Number of matches: {n_matches} out of {top_size}")
+
     ignore = 4
     subset = 4 * top_size
     plt.plot(sorted_x_known[ignore:subset])

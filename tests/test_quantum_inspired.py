@@ -7,20 +7,17 @@ import pytest
 from numpy.linalg import eigvalsh
 from numpy.typing import ArrayLike
 from numpy.typing import NDArray
-from scipy.linalg import eigh
-from scipy.sparse import diags
 from scipy.sparse.linalg import cg
-from sklearn.linear_model import Ridge
 from genomic_prediction import quantum_inspired as qi
 from genomic_prediction.utils.visualization import plot_solution
 
 
-def find_top_indices(x: ArrayLike, top_size: int) -> NDArray:
+def _find_top_indices(x: ArrayLike, top_size: int) -> NDArray:
     """Find indices corresponding to the `top_size` largest entires in `x`."""
     return np.flip(np.argsort(x))[:top_size]
 
 
-def load_data(rank_genotype=1000):
+def _load_data(rank_genotype=1000):
     """Load test data."""
     # Define path to data
     path_low_rank = Path(Path(__file__).parent.resolve(), "data", f"{rank_genotype}")
@@ -53,7 +50,7 @@ def test_data_consistency():
 def test_coefficient_matrix():
     """Test assumptions on coefficient matrix."""
     # Load matrix
-    A, _, _, _, _ = load_data()
+    A, _, _, _, _ = _load_data()
 
     # Check if A is symmetric
     assert np.allclose(A, A.T)
@@ -73,48 +70,22 @@ def test_coefficient_matrix():
 
 def test_cg():
     """Test CG."""
-    A, b, x_sol, P, top_size = load_data()
+    A, b, x_sol, P, top_size = _load_data()
     x_cg, _ = cg(A, b, M=P, atol=1e-5)
-    x_idx = find_top_indices(x_cg, top_size)
+    x_idx = _find_top_indices(x_cg, top_size)
     plot_solution(x_sol, x_idx, top_size)
-
-    assert True
-
-
-def test_cg_multiple_ranks():
-    """Test CG."""
-    A, b, x_sol, P, top_size = load_data()
-    eigenvalues, eigenvectors = eigh(A)
-
-    for k in range(x_sol.size, 500, -500):
-        print(f"Rank: {k}")
-
-        # Compute low-rank approximation of A
-        if k == x_sol.size:
-            A_k = A
-            P_k = P
-        else:
-            A_k = eigenvectors[:, -k:] @ diags(eigenvalues[-k:]) @ eigenvectors[:, -k:].T
-            P_k = diags(np.diagonal(A_k))
-
-        # Solve linear system
-        x_cg, _ = cg(A_k, b, M=P_k, atol=1e-5)
-        x_idx = find_top_indices(x_cg, top_size)
-
-        # Plot
-        plot_solution(x_sol, x_idx, top_size)
 
     assert True
 
 
 def test_fkv():
     """Test FKV."""
-    A, b, x_sol, P, top_size = load_data()
+    A, b, x_sol, P, top_size = _load_data()
     rank = 5
     r = 50
     c = 50
     x_fkv = qi.linear_eqs_fkv(P @ A, P @ b, r, c, rank)
-    x_idx = find_top_indices(x_fkv, top_size)
+    x_idx = _find_top_indices(x_fkv, top_size)
     plot_solution(x_sol, x_idx, top_size)
 
     assert True
@@ -122,7 +93,7 @@ def test_fkv():
 
 def test_qi():
     """Test quantum-inspired algo."""
-    A, b, x_sol, P, top_size = load_data()
+    A, b, x_sol, P, top_size = _load_data()
     rank = 5
     r = 50
     c = 50
@@ -134,47 +105,5 @@ def test_qi():
     assert True
 
 
-def test_ridge():
-    """Test ridge regression."""
-    A, b, x_sol, P, top_size = load_data()
-    clf = Ridge(alpha=1, solver="svd", fit_intercept=False)
-    clf.fit(P @ A, P @ b)
-    x_rr = clf.coef_
-    x_rr = np.squeeze(x_rr)
-    x_idx = find_top_indices(x_rr, top_size)
-    plot_solution(x_sol, x_idx, top_size)
-
-    assert True
-
-
-def test_ridge_multiple_ranks():
-    """Test ridge regression."""
-    A, b, x_sol, P, top_size = load_data()
-    eigenvalues, eigenvectors = eigh(A)
-
-    for k in range(x_sol.size, 500, -500):
-        print(f"Rank: {k}")
-
-        # Compute low-rank approximation of A
-        if k == x_sol.size:
-            A_k = A
-            P_k = P
-        else:
-            A_k = eigenvectors[:, -k:] @ diags(eigenvalues[-k:]) @ eigenvectors[:, -k:].T
-            P_k = diags(np.diagonal(A_k))
-
-        # Solve linear system
-        clf = Ridge(alpha=1, solver="svd", fit_intercept=False)
-        clf.fit(P_k @ A_k, P_k @ b)
-        x_rr = clf.coef_
-        x_rr = np.squeeze(x_rr)
-        x_idx = find_top_indices(x_rr, top_size)
-
-        # Plot
-        plot_solution(x_sol, x_idx, top_size)
-
-    assert True
-
-
 if __name__ == "__main__":
-    test_ridge_multiple_ranks()
+    test_cg()
