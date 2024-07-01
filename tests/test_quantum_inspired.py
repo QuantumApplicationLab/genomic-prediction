@@ -68,6 +68,16 @@ def test_coefficient_matrix():
     assert True
 
 
+def test_cg_low_rank():
+    """Test CG with low-rank genotype data."""
+    A, b, x_sol, P, top_size = _load_data(rank_genotype=100)
+    x_cg, _ = cg(A, b, M=P, atol=1e-5)
+    x_idx = _find_top_indices(x_cg, top_size)
+    plot_solution(x_sol, x_idx, top_size)
+
+    assert True
+
+
 def test_cg():
     """Test CG."""
     A, b, x_sol, P, top_size = _load_data()
@@ -106,4 +116,4 @@ def test_qi():
 
 
 if __name__ == "__main__":
-    test_cg()
+    test_cg_low_rank()
