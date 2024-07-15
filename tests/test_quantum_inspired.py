@@ -281,15 +281,14 @@ def test_least_squares_ignore_X():
 def test_qi_no_X(method: str):
     """Test quantum-inspired regression and no fixed effects."""
     # Load data
-    _, _, _, ebv, y, W, Z, _, _, _, top_size_ebv = _load_data()
-    y = y - np.mean(y)
+    _, _, _, ebv, _, W, Z, _, _, _, top_size_ebv = _load_data()
     rank = 80
 
     # Leave out non-phenotyped animals
     WZ = W @ Z
 
-    # Compute low-rank approximation (this step shouldn't be necessary or desired)
-    WZ = _get_low_rank_approx(WZ, rank)
+    # Simulate direct observations
+    y = ebv[WZ.shape[0] :]
 
     # Solve using quantum-inspired algorithm
     r = 200
