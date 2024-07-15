@@ -208,10 +208,11 @@ def test_approximate_ridge():
     assert n_matches == 30
 
 
-def test_ridge_no_X():
-    """Test approximate ridge regression and no fixed effects."""
+def test_ridge_ignore_X():
+    """Test approximate ridge regression while ignoring fixed effects."""
     # Load data
-    _, _, _, ebv, _, W, Z, _, _, _, top_size_ebv = _load_data()
+    _, _, _, ebv, y, W, Z, _, _, _, top_size_ebv = _load_data()
+    y = np.squeeze(y - np.mean(y))  # simple compensation of fixed effects
     rank = 80
 
     # Leave out non-phenotyped animals
@@ -219,7 +220,6 @@ def test_ridge_no_X():
 
     # Compute low-rank approximation
     WZ = _get_low_rank_approx(WZ, rank)
-    y = ebv[WZ.shape[0] :]
 
     # Solve using ridge regression
     var_e = 0.7
@@ -236,32 +236,38 @@ def test_ridge_no_X():
 
     ebv_idx = _find_top_indices(np.abs(ebv_rr), top_size_ebv)
     n_matches = plot_solution(
-        ebv, ebv_idx, "test_ridge_no_X", expected_solution=_normalize(ebv), solution=_normalize(ebv_rr)
+        ebv, ebv_idx, "test_ridge_ignore_X", expected_solution=_normalize(ebv), solution=_normalize(ebv_rr)
     )
-    assert n_matches == 29
+    assert n_matches == 28
 
 
-def test_least_squares_no_X():
-    """Test using least-squares and no fixed effects."""
+def test_least_squares_ignore_X():
+    """Test using least-squares while ignoring fixed effects."""
     # Load data
-    _, _, _, ebv, _, W, Z, _, _, _, top_size_ebv = _load_data()
+    _, _, _, ebv, y, W, Z, _, _, _, top_size_ebv = _load_data()
+    y = y - np.mean(y)
 
-    for rank, n_matches_expected in [(None, top_size_ebv), (80, 31)]:
+    for rank, n_matches_expected in [(None, 16), (80, 24)]:
         # Leave out non-phenotyped animals
         WZ = W @ Z
         if rank is not None:
             WZ = _get_low_rank_approx(WZ, rank)
-        y = ebv[WZ.shape[0] :]
 
         # Solve using pseudoinverse
         x_sol_pinv = np.squeeze(pinv(WZ).dot(y))
         ebv_pinv = Z @ x_sol_pinv
 
         ebv_idx = _find_top_indices(np.abs(ebv_pinv), top_size_ebv)
-        plot_name = "test_least_squares_no_X"
+        plot_name = "test_least_squares_ignore_X"
         if rank is not None:
             plot_name += f"_rank_{rank}"
-        n_matches = plot_solution(ebv, ebv_idx, plot_name, expected_solution=ebv, solution=ebv_pinv)
+        n_matches = plot_solution(
+            ebv,
+            ebv_idx,
+            plot_name,
+            expected_solution=_normalize(ebv),
+            solution=_normalize(ebv_pinv),
+        )
         assert n_matches == n_matches_expected
 
 
@@ -275,7 +281,8 @@ def test_least_squares_no_X():
 def test_qi_no_X(method: str):
     """Test quantum-inspired regression and no fixed effects."""
     # Load data
-    _, _, _, ebv, _, W, Z, _, _, _, top_size_ebv = _load_data()
+    _, _, _, ebv, y, W, Z, _, _, _, top_size_ebv = _load_data()
+    y = y - np.mean(y)
     rank = 80
 
     # Leave out non-phenotyped animals
@@ -283,11 +290,8 @@ def test_qi_no_X(method: str):
 
     # Compute low-rank approximation (this step shouldn't be necessary or desired)
     WZ = _get_low_rank_approx(WZ, rank)
-    y = ebv[WZ.shape[0] :]
 
     # Solve using quantum-inspired algorithm
-    # r = 200
-    # c = 240
     r = 200
     c = 350
     n_samples = 2000
@@ -305,7 +309,18 @@ def test_qi_no_X(method: str):
 
         # Solve
         _, _, sampled_indices, sampled_ebv = qi.solve_qi(
-            WZ, y, r, c, rank, n_samples, n_entries_x, n_entries_b, rng, sigma_threshold=1e-10, A_sampling=Z, func=func
+            WZ,
+            y,
+            r,
+            c,
+            rank,
+            n_samples,
+            n_entries_x,
+            n_entries_b,
+            rng,
+            sigma_threshold=1e-10,
+            A_sampling=Z,
+            func=func,
         )
 
         # Find most frequent outcomes
@@ -318,14 +333,13 @@ def test_qi_no_X(method: str):
         df_mean = df.groupby("ebv_idx_samples")["ebv_samples"].mean()
         df_counts = df.groupby("ebv_idx_samples").count()
         unique_sampled_indices = df_mean.keys()
-        unique_sampled_ebv = df_mean.values
-        unique_sampled_ebv /= np.max(np.abs(unique_sampled_ebv))
+        unique_sampled_ebv = np.asarray(df_mean.values)
         _ = plot_solution(
             ebv,
             ebv_idx,
             f"{random_state}_test_qi_{method}_no_X",
-            expected_solution=np.abs(ebv)[unique_sampled_indices],
-            solution=np.abs(unique_sampled_ebv),
+            expected_solution=ebv[unique_sampled_indices],
+            solution=unique_sampled_ebv,
             expected_counts=n_entries_b * np.abs(ebv / norm(ebv))[unique_sampled_indices] ** 2,
             counts=np.squeeze(np.round(df_counts.values)),
         )
