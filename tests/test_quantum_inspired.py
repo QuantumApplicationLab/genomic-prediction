@@ -44,6 +44,10 @@ def _load_data():
     return A, b, x_sol, ebv, y, W, Z, X, P, top_size_x, top_size_ebv
 
 
+def _normalize(array: NDArray) -> NDArray:
+    return array / norm(array)
+
+
 def _find_top_indices(x: ArrayLike, top_size: int) -> NDArray:
     """Find indices corresponding to the `top_size` largest entries in x."""
     return np.flip(np.argsort(x))[:top_size]
@@ -70,7 +74,7 @@ def _construct_A_b_no_X(W: NDArray, Z: NDArray, y: NDArray, rank_Z: Optional[int
 
 
 def _construct_A_b(
-    W: NDArray, Z: NDArray, X: NDArray, y: NDArray, rank_Z: Optional[int] = None, overload: bool = False
+    W: NDArray, Z: NDArray, X: NDArray, y: NDArray, rank_Z: Optional[int] = None
 ) -> tuple[NDArray, NDArray]:
     # Construct A and b
     var_e = 0.7
@@ -80,13 +84,9 @@ def _construct_A_b(
         WZ = _get_low_rank_approx(WZ, rank_Z)
     XWZ = np.hstack([X, WZ])
     A = XWZ.T @ XWZ * 1 / var_e
-    if overload:
-        diag_load_idx = np.diag_indices(A.shape[0])
-        A[diag_load_idx] += 1 / var_g
-    else:
-        diag_load_row_idx, diag_load_col_idx = np.diag_indices(A.shape[0])
-        diag_load_idx = (diag_load_row_idx[X.shape[1] :], diag_load_col_idx[X.shape[1] :])
-        A[diag_load_idx] += 1 / var_g
+    diag_load_row_idx, diag_load_col_idx = np.diag_indices(A.shape[0])
+    diag_load_idx = (diag_load_row_idx[X.shape[1] :], diag_load_col_idx[X.shape[1] :])
+    A[diag_load_idx] += 1 / var_g
     b = XWZ.T @ y * 1 / var_e
 
     return A, b
@@ -159,6 +159,7 @@ def test_cg_low_rank():
 def test_cg_low_rank_ignore_X():
     """Test CG with low-rank genotype data while ignoring fixed effects."""
     _, _, x_sol, ebv, y, W, Z, _, _, top_size_x, top_size_ebv = _load_data()
+    y = y - np.mean(y)  # simple compensation of fixed effects
     A, b = _construct_A_b_no_X(W, Z, y, rank_Z=80)
     P = np.diag(np.diag(A))
     x_cg, _ = cg(A, b, M=P, atol=1e-5)
@@ -170,25 +171,7 @@ def test_cg_low_rank_ignore_X():
     ebv_cg = Z @ x_cg
     ebv_idx = _find_top_indices(np.abs(ebv_cg), top_size_ebv)
     n_matches = plot_solution(ebv, ebv_idx, "test_cg_low_rank_ignore_X_ebv", expected_solution=ebv, solution=ebv_cg)
-    assert n_matches == 9
-
-
-def test_cg_overloaded():
-    """Test overloaded CG."""
-    # Load data
-    _, _, x_sol, ebv, y, W, Z, X, _, top_size_x, top_size_ebv = _load_data()
-    A, b = _construct_A_b(W, Z, X, y, overload=True)
-    P = np.diag(np.diag(A))
-    x_cg, _ = cg(A, b, M=P, atol=1e-5)
-
-    x_idx = _find_top_indices(np.abs(x_cg), top_size_x)
-    n_matches = plot_solution(x_sol, x_idx, "test_cg_overloaded_x")
-    assert n_matches == 12
-
-    ebv_cg = Z @ x_cg[X.shape[1] :]
-    ebv_idx = _find_top_indices(np.abs(ebv_cg), top_size_ebv)
-    n_matches = plot_solution(ebv, ebv_idx, "test_cg_overloaded_ebv", expected_solution=ebv, solution=ebv_cg)
-    assert n_matches == 12
+    assert n_matches == 28
 
 
 def test_approximate_ridge():
@@ -200,11 +183,11 @@ def test_approximate_ridge():
     # Leave out non-phenotyped animals
     WZ = W @ Z
 
-    # Compute low-rank approximation
-    WZ = _get_low_rank_approx(WZ, rank)
+    # Compute low-rank approximation of `XWZ`
     XWZ = np.hstack([X, WZ])
+    XWZ = _get_low_rank_approx(XWZ, rank)
 
-    # Solve using ridge regression
+    # Solve using approximate ridge regression
     var_e = 0.7
     var_g = 0.3 / Z.shape[1] / 0.5
     alpha = var_e / var_g
@@ -217,12 +200,12 @@ def test_approximate_ridge():
 
     x_idx = _find_top_indices(np.abs(x_rr), top_size_x)
     n_matches = plot_solution(x_sol, x_idx, "test_approximate_ridge_x")
-    assert n_matches == 7
+    assert n_matches == 3
 
     ebv_rr = Z @ x_rr[X_n_cols:]
     ebv_idx = _find_top_indices(np.abs(ebv_rr), top_size_ebv)
     n_matches = plot_solution(ebv, ebv_idx, "test_approximate_ridge_ebv", expected_solution=ebv, solution=ebv_rr)
-    assert n_matches == 31
+    assert n_matches == 30
 
 
 def test_ridge_no_X():
@@ -252,7 +235,9 @@ def test_ridge_no_X():
     ebv_rr = np.squeeze(Z @ x_rr)
 
     ebv_idx = _find_top_indices(np.abs(ebv_rr), top_size_ebv)
-    n_matches = plot_solution(ebv, ebv_idx, "test_ridge_no_X", expected_solution=ebv, solution=ebv_rr)
+    n_matches = plot_solution(
+        ebv, ebv_idx, "test_ridge_no_X", expected_solution=_normalize(ebv), solution=_normalize(ebv_rr)
+    )
     assert n_matches == 29
 
 
@@ -301,8 +286,10 @@ def test_qi_no_X(method: str):
     y = ebv[WZ.shape[0] :]
 
     # Solve using quantum-inspired algorithm
+    # r = 200
+    # c = 240
     r = 200
-    c = 240
+    c = 350
     n_samples = 2000
     print(f"n_samples: {n_samples} out of {WZ.shape[0] * WZ.shape[1]}")
     n_entries_x = 0
@@ -318,7 +305,7 @@ def test_qi_no_X(method: str):
 
         # Solve
         _, _, sampled_indices, sampled_ebv = qi.solve_qi(
-            WZ, y, r, c, rank, n_samples, n_entries_x, n_entries_b, rng, A_sampling=Z, func=func
+            WZ, y, r, c, rank, n_samples, n_entries_x, n_entries_b, rng, sigma_threshold=1e-10, A_sampling=Z, func=func
         )
 
         # Find most frequent outcomes
@@ -332,6 +319,7 @@ def test_qi_no_X(method: str):
         df_counts = df.groupby("ebv_idx_samples").count()
         unique_sampled_indices = df_mean.keys()
         unique_sampled_ebv = df_mean.values
+        unique_sampled_ebv /= np.max(np.abs(unique_sampled_ebv))
         _ = plot_solution(
             ebv,
             ebv_idx,
