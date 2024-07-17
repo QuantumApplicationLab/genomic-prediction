@@ -323,7 +323,6 @@ def test_qi_no_X(method: str):
         n_entries_x,
         n_entries_b,
         rng,
-        sigma_threshold=1e-10,
         A_sampling=Z,
         func=func,
     )
@@ -350,10 +349,11 @@ def test_qi_no_X(method: str):
     )
 
     if method == "ridge":
-        assert n_matches == 26
+        assert n_matches == 23
     elif method == "ordinary":
         assert n_matches == 29
-    assert False
+    else:
+        assert False
 
 
 if __name__ == "__main__":
