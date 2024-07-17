@@ -281,8 +281,14 @@ def test_least_squares_ignore_X():
 def test_qi_no_X(method: str):
     """Test quantum-inspired regression and no fixed effects."""
     # Load data
-    _, _, _, ebv, _, W, Z, _, _, _, top_size_ebv = _load_data()
-    rank = 80
+    _, _, x_sol, _, _, W, Z, X, _, _, top_size_ebv = _load_data()
+    rank = 3
+
+    # Simulate specific rank for Z
+    Z = _get_low_rank_approx(Z, rank)
+
+    # Simulate `ebv` based on a previous solution
+    ebv = np.squeeze(Z @ x_sol[X.shape[1] :])  # use `x_sol` for convenience
 
     # Leave out non-phenotyped animals
     WZ = W @ Z
@@ -291,9 +297,9 @@ def test_qi_no_X(method: str):
     y = ebv[WZ.shape[0] :]
 
     # Solve using quantum-inspired algorithm
-    r = 200
-    c = 350
-    n_samples = 2000
+    r = 170
+    c = 140
+    n_samples = 100
     print(f"n_samples: {n_samples} out of {WZ.shape[0] * WZ.shape[1]}")
     n_entries_x = 0
     n_entries_b = 1000
@@ -302,48 +308,52 @@ def test_qi_no_X(method: str):
         var_e = 0.7
         var_g = 0.3 / Z.shape[1] / 0.5
         func = lambda arg: (arg**2 + var_e / var_g) / arg
-    for random_state in range(1):
-        print(f"\nrandom_state: {random_state}")
-        rng = np.random.RandomState(random_state)
+    random_state = 2
+    print(f"\nrandom_state: {random_state}")
+    rng = np.random.RandomState(random_state)
 
-        # Solve
-        _, _, sampled_indices, sampled_ebv = qi.solve_qi(
-            WZ,
-            y,
-            r,
-            c,
-            rank,
-            n_samples,
-            n_entries_x,
-            n_entries_b,
-            rng,
-            sigma_threshold=1e-10,
-            A_sampling=Z,
-            func=func,
-        )
+    # Solve
+    _, _, sampled_indices, sampled_ebv = qi.solve_qi(
+        WZ,
+        y,
+        r,
+        c,
+        rank,
+        n_samples,
+        n_entries_x,
+        n_entries_b,
+        rng,
+        sigma_threshold=1e-10,
+        A_sampling=Z,
+        func=func,
+    )
 
-        # Find most frequent outcomes
-        unique_ebv_idx, counts = np.unique(sampled_indices, return_counts=True)
-        sort_idx = np.flip(np.argsort(counts))
-        ebv_idx = unique_ebv_idx[sort_idx][:top_size_ebv]
+    # Find most frequent outcomes
+    unique_ebv_idx, counts = np.unique(sampled_indices, return_counts=True)
+    sort_idx = np.flip(np.argsort(counts))
+    ebv_idx = unique_ebv_idx[sort_idx][:top_size_ebv]
 
-        # Compare results
-        df = pd.DataFrame({"ebv_idx_samples": sampled_indices, "ebv_samples": sampled_ebv})
-        df_mean = df.groupby("ebv_idx_samples")["ebv_samples"].mean()
-        df_counts = df.groupby("ebv_idx_samples").count()
-        unique_sampled_indices = df_mean.keys()
-        unique_sampled_ebv = np.asarray(df_mean.values)
-        _ = plot_solution(
-            ebv,
-            ebv_idx,
-            f"{random_state}_test_qi_{method}_no_X",
-            expected_solution=ebv[unique_sampled_indices],
-            solution=unique_sampled_ebv,
-            expected_counts=n_entries_b * np.abs(ebv / norm(ebv))[unique_sampled_indices] ** 2,
-            counts=np.squeeze(np.round(df_counts.values)),
-        )
+    # Compare results
+    df = pd.DataFrame({"ebv_idx_samples": sampled_indices, "ebv_samples": sampled_ebv})
+    df_mean = df.groupby("ebv_idx_samples")["ebv_samples"].mean()
+    df_counts = df.groupby("ebv_idx_samples").count()
+    unique_sampled_indices = df_mean.keys()
+    unique_sampled_ebv = np.asarray(df_mean.values)
+    n_matches = plot_solution(
+        ebv,
+        ebv_idx,
+        f"{random_state}_test_qi_{method}_no_X_{n_samples}",
+        expected_solution=_normalize(ebv[unique_sampled_indices]),
+        solution=_normalize(unique_sampled_ebv),
+        expected_counts=n_entries_b * np.abs(ebv / norm(ebv))[unique_sampled_indices] ** 2,
+        counts=np.squeeze(np.round(df_counts.values)),
+    )
 
-        assert True
+    if method == "ridge":
+        assert n_matches == 26
+    elif method == "ordinary":
+        assert n_matches == 29
+    assert False
 
 
 if __name__ == "__main__":
