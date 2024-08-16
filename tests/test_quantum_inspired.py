@@ -178,10 +178,11 @@ def test_cg_low_rank_ignore_X():
     n_matches = plot_solution(ebv, ebv_idx, "test_cg_low_rank_ignore_X_ebv", expected_solution=ebv, solution=ebv_cg)
     assert n_matches == 28
 
+
 def test_cg_saturated_rank_ignore_X():
     """Test CG with low-rank genotype data and varying assumed ranks to analyze when rank saturates."""
-    
-    ranks = np.linspace(1, 500, num = 100)
+
+    ranks = np.linspace(1, 500, num=100)
     total_n_matches = []
     max_n_found = 0
     max_rank_found = 0
@@ -200,22 +201,23 @@ def test_cg_saturated_rank_ignore_X():
         ebv_cg = Z @ x_cg
         ebv_idx = _find_top_indices(np.abs(ebv_cg), top_size_ebv)
         n_matches = plot_solution(ebv, ebv_idx, "test_cg_low_rank_ignore_X_ebv", expected_solution=ebv, solution=ebv_cg)
-       
+
         total_n_matches.append(n_matches)
-       
+
         if n_matches > max_n_found:
             max_n_found = n_matches
         if i_counter == 0:
-            increase = max(total_n_matches[-5:]) - min(total_n_matches[-5:]) 
+            increase = max(total_n_matches[-5:]) - min(total_n_matches[-5:])
             if increase < 2 or max_n_found not in total_n_matches[-5:]:
                 max_rank_found = rank
                 break
             i_counter = 5
         else:
             i_counter -= 1
-   
+
     assert int(np.ceil(max_rank_found)) == 238
     assert max_n_found == 36
+
 
 def test_approximate_ridge():
     """Test approximate ridge regression."""
@@ -389,6 +391,7 @@ def test_qi_no_X(method: str):
 
 
 if __name__ == "__main__":
-    #test_qi_no_X("ordinary")
-    #test_qi_no_X("ridge")
+    test_qi_no_X("ordinary")
+    test_qi_no_X("ridge")
     test_cg_saturated_rank_ignore_X()
+
