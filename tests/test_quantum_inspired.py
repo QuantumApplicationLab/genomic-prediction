@@ -3,6 +3,7 @@
 import logging
 from pathlib import Path
 from typing import Optional
+import h5py
 import numpy as np
 import pandas as pd
 import pytest
@@ -30,7 +31,11 @@ def _load_data():
     ebv = np.load(Path(path, "ebv_snp.npy"))  # estimated breeding values (using PCG)
     y = np.load(Path(path, "phen.npy"))
     W = np.load(Path(path, "W.npy"))
-    Z = np.load(Path(path, "Z.npy"))
+    Z_1 = np.load(Path(path, "Z.npy"))
+    f1 = h5py.File(Path(path, "Z.h5"), "r")
+    Z_2 = f1["my_dataset"][()]
+    assert np.allclose(Z_1, Z_2)
+    Z = f1["my_dataset"]
     X = np.load(Path(path, "X.npy"))
     P = np.load(Path(path, "m1.npy"))
 
