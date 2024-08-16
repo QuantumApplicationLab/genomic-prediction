@@ -11,7 +11,7 @@ from numpy.linalg import norm
 from numpy.linalg import pinv
 from numpy.typing import ArrayLike
 from numpy.typing import NDArray
-from quantum_inspired_algorithms import quantum_inspired as qi
+from quantum_inspired_algorithms.estimator import QILinearEstimator
 from quantum_inspired_algorithms.visualization import plot_solution
 from scipy.sparse.linalg import cg
 
@@ -301,7 +301,6 @@ def test_qi_no_X(method: str):
     c = 140
     n_samples = 100
     print(f"n_samples: {n_samples} out of {WZ.shape[0] * WZ.shape[1]}")
-    n_entries_x = 0
     n_entries_b = 1000
     func = None
     if method == "ridge":
@@ -313,19 +312,9 @@ def test_qi_no_X(method: str):
     rng = np.random.RandomState(random_state)
 
     # Solve
-    _, _, sampled_indices, sampled_ebv = qi.solve_qi(
-        WZ,
-        y,
-        r,
-        c,
-        rank,
-        n_samples,
-        n_entries_x,
-        n_entries_b,
-        rng,
-        A_sampling=Z,
-        func=func,
-    )
+    qi = QILinearEstimator(r, c, rank, n_samples, rng, func=func)
+    qi = qi.fit(WZ, y)
+    sampled_indices, sampled_ebv = qi.predict_b(Z, n_entries_b)
 
     # Find most frequent outcomes
     unique_ebv_idx, counts = np.unique(sampled_indices, return_counts=True)
