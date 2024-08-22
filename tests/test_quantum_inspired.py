@@ -215,6 +215,9 @@ def test_cg_saturated_rank_ignore_X():
         else:
             i_counter -= 1
 
+        print("Rank " + str(int(np.ceil(rank))) + " found " + str(n_matches) + " matches")
+
+    print("Max matches found: " + str(max_n_found) + " saturated at rank " + str(np.ceil(max_rank_found)))
     assert int(np.ceil(max_rank_found)) == 238
     assert max_n_found == 36
 
