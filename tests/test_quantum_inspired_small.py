@@ -65,17 +65,15 @@ def test_qi_no_X(method: str):
     qi = qi.fit(WZ, y)
     sampled_indices, sampled_ebv = qi.predict_b(Z, n_entries_b)
 
-    # Find most frequent outcomes
-    unique_ebv_idx, counts = np.unique(sampled_indices, return_counts=True)
-    sort_idx = np.flip(np.argsort(counts))
-    ebv_idx = unique_ebv_idx[sort_idx][:top_size_ebv]
-
     # Compare results
     df = pd.DataFrame({"ebv_idx_samples": sampled_indices, "ebv_samples": sampled_ebv})
     df_mean = df.groupby("ebv_idx_samples")["ebv_samples"].mean()
     df_counts = df.groupby("ebv_idx_samples").count()
-    unique_sampled_indices = df_mean.keys()
+    unique_sampled_indices = np.asarray(df_mean.keys())
     unique_sampled_ebv = np.asarray(df_mean.values)
+    sort_idx = np.flip(np.argsort(np.abs(unique_sampled_ebv)))
+    ebv_idx = unique_sampled_indices[sort_idx][:top_size_ebv]
+
     n_matches = plot_solution(
         ebv,
         ebv_idx,
@@ -87,9 +85,9 @@ def test_qi_no_X(method: str):
     )
 
     if method == "ridge":
-        assert n_matches == 26
+        assert n_matches == 40
     elif method == "ordinary":
-        assert n_matches == 29
+        assert n_matches == 43
     else:
         assert False
 
