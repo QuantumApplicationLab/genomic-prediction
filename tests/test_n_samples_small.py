@@ -27,9 +27,6 @@ def test_qi_no_X_n_samples():
     _, _, x_sol, _, _, W, Z, X, _, _, top_size_ebv = load_data(path)
     rank = 200
 
-    
-    Z = Z @ np.identity(Z.shape[1]) # necessary for Dataset conversion
-
     # Simulate `ebv` based on a previous solution
     ebv = np.squeeze(Z @ x_sol[X.shape[1] :])  # use `x_sol` for convenience
 
@@ -72,7 +69,7 @@ def test_qi_no_X_n_samples():
 
         n_matches.append(compute_n_matches(ebv, ebv_idx))
 
-    assert(n_matches == [3, 0, 3, 3, 3, 2, 6, 3, 4, 3])
+    assert n_matches == [3, 0, 3, 3, 3, 2, 6, 3, 4, 3]
         
 if __name__ == "__main__":
     test_qi_no_X_n_samples()
