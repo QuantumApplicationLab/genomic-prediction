@@ -11,6 +11,7 @@ from numpy import linalg as la
 from quantum_inspired_algorithms.quantum_inspired import compute_C_and_R
 from quantum_inspired_algorithms.quantum_inspired import compute_ls_probs
 from quantum_inspired_algorithms.visualization import compute_n_matches
+from sklearn.utils.extmath import randomized_svd
 from genomic_prediction.plotting import save_fig
 from genomic_prediction.utils import find_top_indices
 from genomic_prediction.utils import load_data
@@ -21,14 +22,15 @@ path = Path(Path(__file__).parent.resolve(), "data", "full_rank")
 
 
 @pytest.mark.parametrize(
-    "fkv",
+    "method",
     [
-        (True),
-        (False),
+        ("fkv"),
+        ("halko"),
+        ("full_svd"),
     ],
 )
-def test_fkv_low_rank(full_svd: bool):
-    """Test low-rank pseudoinverse."""
+def test_randomized_low_rank(method: str):
+    """Test low-rank pseudoinverse based on randomized algos."""
     # Load data
     _, _, x_sol, _, _, W, Z, X, _, _, top_size_ebv = load_data(path)
 
@@ -42,10 +44,10 @@ def test_fkv_low_rank(full_svd: bool):
     y = ebv[WZ.shape[0] :]
 
     # Solve using FKV or regular SVD for increasing rank
-    ranks = list(range(200, 500, 10))
+    ranks = list(range(200, 300, 10))
     data_to_plot = defaultdict(list)
 
-    if not full_svd:
+    if method == "fkv":
         random_states = range(10)
         WZ_ls_prob_rows, WZ_ls_prob_columns, WZ_row_norms, _, WZ_frobenius = compute_ls_probs(WZ, [])
         r = 500
@@ -94,7 +96,8 @@ def test_fkv_low_rank(full_svd: bool):
                     data_to_plot["n_cols"].append(C.shape[1])
 
             # Plot
-            sns.boxplot(data=data_to_plot, x="rank", y="n_matches", fill=False)
+            ax = sns.boxplot(data=data_to_plot, x="rank", y="n_matches", fill=False)
+            ax.set_ylim(0, top_size_ebv)
             save_fig(f"test_fkv_low_rank_c{c}")
 
             sns.scatterplot(data=data_to_plot, x="rank", y="n_rows")
@@ -104,10 +107,16 @@ def test_fkv_low_rank(full_svd: bool):
     else:
         for rank in ranks:
             # Compute SVD
-            U, S, V = np.linalg.svd(WZ, full_matrices=False)
-            V2 = WZ.T @ (U[:, :rank] / S[None, :rank])
-            V = V.T[:, :rank]
-            assert np.allclose(V2, V)
+            if method == "halko":
+                _, S, VT = randomized_svd(WZ, n_components=rank, random_state=10)
+                V = VT.T
+            elif method == "full_svd":
+                U, S, V = np.linalg.svd(WZ, full_matrices=False)
+                V2 = WZ.T @ (U[:, :rank] / S[None, :rank])
+                V = V.T[:, :rank]
+                assert np.allclose(V2, V)
+            else:  # invalid method
+                assert False
 
             # Estimate lambdas
             lambdas = []
@@ -127,8 +136,9 @@ def test_fkv_low_rank(full_svd: bool):
             data_to_plot["n_matches"].append(n_matches)
 
         # Plot
-        sns.boxplot(data=data_to_plot, x="rank", y="n_matches", fill=False)
-        save_fig("test_fkv_low_rank_svd")
+        ax = sns.boxplot(data=data_to_plot, x="rank", y="n_matches", fill=False)
+        ax.set_ylim(0, top_size_ebv)
+        save_fig(f"test_{method}_low_rank_svd")
 
 
 def test_pinv_low_rank():
@@ -176,4 +186,6 @@ def test_pinv_low_rank():
 
 
 if __name__ == "__main__":
-    test_fkv_low_rank(False)
+    test_randomized_low_rank("halko")
+    test_randomized_low_rank("full_svd")
+    test_randomized_low_rank("fkv")
