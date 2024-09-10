@@ -42,15 +42,14 @@ def test_fkv_low_rank(full_svd: bool):
     y = ebv[WZ.shape[0] :]
 
     # Solve using FKV or regular SVD for increasing rank
-    step = 5
-    ranks = list(range(step, 220, step))
+    ranks = list(range(200, 500, 10))
     data_to_plot = defaultdict(list)
 
     if not full_svd:
         random_states = range(10)
         WZ_ls_prob_rows, WZ_ls_prob_columns, WZ_row_norms, _, WZ_frobenius = compute_ls_probs(WZ, [])
         r = 500
-        for c in range(300, 1000, 100):
+        for c in range(1000, 10000, 300):
             for rank in ranks:
                 for random_state in random_states:
                     # Approximate SVD using FKV
