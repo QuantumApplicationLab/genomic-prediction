@@ -301,3 +301,6 @@ def test_cg_halko_low_rank_with_fixed_effects():
 if __name__ == "__main__":
     test_cg_halko_low_rank()
     test_cg_halko_low_rank_with_fixed_effects()
+    test_randomized_low_rank("fkv")
+    test_halko_low_rank()
+    test_pinv_low_rank()
