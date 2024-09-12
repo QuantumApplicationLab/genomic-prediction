@@ -11,9 +11,13 @@ from numpy import linalg as la
 from quantum_inspired_algorithms.quantum_inspired import compute_C_and_R
 from quantum_inspired_algorithms.quantum_inspired import compute_ls_probs
 from quantum_inspired_algorithms.visualization import compute_n_matches
+from scipy.sparse.linalg import cg
 from sklearn.utils.extmath import randomized_svd
 from genomic_prediction.plotting import save_fig
+from genomic_prediction.utils import construct_A_b
+from genomic_prediction.utils import construct_A_b_no_X
 from genomic_prediction.utils import find_top_indices
+from genomic_prediction.utils import get_low_dimensional_projector
 from genomic_prediction.utils import load_data
 
 logging.basicConfig(format="%(asctime)s %(levelname)s:%(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
@@ -49,9 +53,9 @@ def test_randomized_low_rank(method: str):
 
     if method == "fkv":
         random_states = range(10)
-        WZ_ls_prob_rows, WZ_ls_prob_columns, WZ_row_norms, _, WZ_frobenius = compute_ls_probs(WZ, [])
+        WZ_ls_prob_rows, WZ_ls_prob_columns, WZ_row_norms, _, WZ_frobenius = compute_ls_probs(WZ)
         r = 500
-        for c in range(1000, 10000, 300):
+        for c in [1000, 10000]:
             for rank in ranks:
                 for random_state in random_states:
                     # Approximate SVD using FKV
@@ -65,7 +69,6 @@ def test_randomized_low_rank(method: str):
                         WZ_ls_prob_columns,
                         WZ_frobenius,
                         rng,
-                        [],
                     )
                     w_left, S, _ = la.svd(C, full_matrices=False)
                     R = (
@@ -98,12 +101,12 @@ def test_randomized_low_rank(method: str):
             # Plot
             ax = sns.boxplot(data=data_to_plot, x="rank", y="n_matches", fill=False)
             ax.set_ylim(0, top_size_ebv)
-            save_fig(f"test_fkv_low_rank_c{c}")
+            save_fig(f"test_randomized_low_rank_{method}_c{c}")
 
             sns.scatterplot(data=data_to_plot, x="rank", y="n_rows")
-            save_fig(f"test_fkv_low_rank_n_rows_c{c}")
+            save_fig(f"test_randomized_low_rank_{method}_n_rows_c{c}")
             sns.scatterplot(data=data_to_plot, x="rank", y="n_cols")
-            save_fig(f"test_fkv_low_rank_n_cols_c{c}")
+            save_fig(f"test_randomized_low_rank_{method}_n_cols_c{c}")
     else:
         for rank in ranks:
             # Compute SVD
@@ -138,7 +141,7 @@ def test_randomized_low_rank(method: str):
         # Plot
         ax = sns.boxplot(data=data_to_plot, x="rank", y="n_matches", fill=False)
         ax.set_ylim(0, top_size_ebv)
-        save_fig(f"test_{method}_low_rank_svd")
+        save_fig(f"test_randomized_low_rank_{method}")
 
 
 def test_pinv_low_rank():
@@ -185,7 +188,116 @@ def test_pinv_low_rank():
     # fmt: on
 
 
+def test_halko_low_rank():
+    """Test low-rank pseudoinverse using Halko's algo."""
+    # Load data
+    _, _, x_sol, _, _, W, Z, X, _, _, top_size_ebv = load_data(path)
+
+    # Simulate `ebv` based on a previous solution
+    ebv = np.squeeze(Z @ x_sol[X.shape[1] :])  # use `x_sol` for convenience
+
+    # Leave out non-phenotyped animals
+    WZ = W @ Z
+
+    # Simulate direct observations
+    y = ebv[WZ.shape[0] :]
+
+    # Solve using pseudoinverse for increasing rank
+    step = 5
+    ranks = list(range(step, WZ.shape[0] + step, step))
+    n_matches = []
+    for rank in ranks:
+        # Reduce dimensionality
+        Q = get_low_dimensional_projector(WZ, n_components=rank, random_state=10)
+        WZ_reduced = WZ @ Q
+        Z_reduced = Z @ Q
+
+        # Fit and predict
+        U, S, V = np.linalg.svd(WZ_reduced, full_matrices=False)
+        WZ_pinv = V[:rank, :].T @ (np.diag(1 / S[:rank])) @ U[:, :rank].T
+        ebv_pinv = Z_reduced @ WZ_pinv @ y
+
+        # Compute number of matches
+        ebv_idx = find_top_indices(np.abs(ebv_pinv), top_size_ebv)
+        n_matches.append(compute_n_matches(ebv, ebv_idx))
+
+    # Plot
+    data = pd.DataFrame({"rank": ranks, "n_matches": n_matches})
+    sns.lineplot(data=data, x="rank", y="n_matches", color="orange")
+    save_fig("test_halko_low_rank")
+
+    # fmt: off
+    assert n_matches == [
+        6, 9, 11, 10, 12, 18, 17, 21, 24, 20, 24, 28, 28, 30, 30, 31, 31, 34, 35,
+        34, 35, 34, 33, 34, 36, 35, 36, 35, 35, 39, 36, 36, 38, 38, 38, 39, 41, 40,
+        40, 36, 41, 39, 39, 41, 39, 38, 41, 40, 40, 39, 39, 41, 41, 42, 40, 40, 39,
+        41, 42, 40, 39, 41, 38, 39, 41, 40, 41, 39, 42, 40, 41, 39, 41, 40, 41, 43,
+        41, 44, 40, 44, 42, 42, 42, 43, 42, 43, 44, 44, 43, 45, 45, 44, 46, 46, 49,
+        48, 48, 49, 49, 50,
+    ]
+    # fmt: on
+
+
+def test_cg_halko_low_rank():
+    """Test CG with Halko's algo without fixed effects."""
+    # Load data
+    _, _, x_sol, ebv, y, W, Z, X, _, _, top_size_ebv = load_data(path)
+
+    # Simulate `ebv` based on a previous solution
+    ebv = np.squeeze(Z @ x_sol[X.shape[1] :])  # use `x_sol` for convenience
+
+    # Leave out non-phenotyped animals
+    WZ = W @ Z
+
+    # Simulate direct observations
+    y = ebv[WZ.shape[0] :]
+
+    # Reduce dimensionality
+    Q = get_low_dimensional_projector(WZ, n_components=210, random_state=10)
+    Z_reduced = Z @ Q
+
+    # Construct normal equations
+    A, b = construct_A_b_no_X(W, Z_reduced, y)
+
+    # Solve using PCG
+    P = np.diag(np.diag(A))
+    x_cg, _ = cg(A, b, M=P, atol=1e-5)
+    ebv_cg = Z_reduced @ x_cg
+
+    # Compute number of matches
+    ebv_idx = find_top_indices(np.abs(ebv_cg), top_size_ebv)
+    n_matches = compute_n_matches(ebv, ebv_idx)
+
+    assert n_matches == 40
+
+
+def test_cg_halko_low_rank_with_fixed_effects():
+    """Test CG with Halko's algo and fixed effects."""
+    # Load data
+    _, _, _, ebv, y, W, Z, X, _, _, top_size_ebv = load_data(path)
+
+    # Leave out non-phenotyped animals
+    WZ = W @ Z
+
+    # Reduce dimensionality
+    Q = get_low_dimensional_projector(WZ, n_components=210, random_state=10)
+    Z_reduced = Z @ Q
+
+    # Construct normal equations
+    A, b = construct_A_b(W, Z_reduced, X, y)
+
+    # Solve using PCG
+    P = np.diag(np.diag(A))
+    x_cg, _ = cg(A, b, M=P, atol=1e-5)
+    ebv_cg = Z_reduced @ x_cg[X.shape[1] :]
+
+    # Compute number of matches
+    ebv_idx = find_top_indices(np.abs(ebv_cg), top_size_ebv)
+    n_matches = compute_n_matches(ebv, ebv_idx)
+
+    assert n_matches == 11
+
+
 if __name__ == "__main__":
-    test_randomized_low_rank("halko")
-    test_randomized_low_rank("full_svd")
-    test_randomized_low_rank("fkv")
+    test_cg_halko_low_rank()
+    test_cg_halko_low_rank_with_fixed_effects()

@@ -7,6 +7,7 @@ import numpy as np
 from numpy.linalg import norm
 from numpy.typing import ArrayLike
 from numpy.typing import NDArray
+from sklearn.utils.extmath import randomized_range_finder
 
 
 def load_data(path: Path):
@@ -86,3 +87,20 @@ def construct_A_b(
     b = XWZ.T @ y * 1 / var_e
 
     return A, b
+
+
+def get_low_dimensional_projector(M: NDArray, n_components: int, random_state: int):
+    """Find random matrix to reduce dimensionality of columns of `M`."""
+    n_oversamples = 10
+    n_random = n_components + n_oversamples
+    n_iter = 7 if n_components < 0.1 * min(M.shape) else 4
+    Q = np.asarray(
+        randomized_range_finder(
+            M.T,
+            size=n_random,
+            n_iter=n_iter,
+            power_iteration_normalizer="auto",
+            random_state=random_state,
+        )
+    )
+    return np.asarray(Q)
