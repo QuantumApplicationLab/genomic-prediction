@@ -8,8 +8,8 @@ import pandas as pd
 import pytest  # noqa: F401
 import seaborn as sns
 from numpy import linalg as la
-from quantum_inspired_algorithms.quantum_inspired import compute_C_and_R
 from quantum_inspired_algorithms.quantum_inspired import compute_ls_probs
+from quantum_inspired_algorithms.sketching import FKV
 from quantum_inspired_algorithms.visualization import compute_n_matches
 from scipy.sparse.linalg import cg
 from sklearn.utils.extmath import randomized_svd
@@ -49,34 +49,21 @@ def test_randomized_low_rank(method: str):
 
     # Solve using FKV or regular SVD for increasing rank
     ranks = list(range(200, 300, 10))
-    data_to_plot = defaultdict(list)
 
     if method == "fkv":
         random_states = range(10)
-        WZ_ls_prob_rows, WZ_ls_prob_columns, WZ_row_norms, _, WZ_frobenius = compute_ls_probs(WZ)
+        WZ_ls_prob_rows, WZ_ls_prob_columns_2d, _, _, WZ_frobenius = compute_ls_probs(WZ)
         r = 500
-        for c in [1000, 10000]:
+        for c in range(1000, 10000, 1000):
+            data_to_plot = defaultdict(list)
             for rank in ranks:
                 for random_state in random_states:
                     # Approximate SVD using FKV
                     rng = np.random.RandomState(random_state)
-                    C, _, _, WZ_sampled_rows_idx, _ = compute_C_and_R(
-                        WZ,
-                        r,
-                        c,
-                        WZ_row_norms,
-                        WZ_ls_prob_rows,
-                        WZ_ls_prob_columns,
-                        WZ_frobenius,
-                        rng,
-                    )
-                    w_left, S, _ = la.svd(C, full_matrices=False)
-                    R = (
-                        WZ[WZ_sampled_rows_idx, :]
-                        * WZ_frobenius
-                        / (np.sqrt(len(WZ_sampled_rows_idx)) * WZ_row_norms[WZ_sampled_rows_idx, None])
-                    )
-                    V = R.T @ (w_left[:, :rank] / S[None, :rank])
+                    sketcher = FKV(WZ, r, c, WZ_ls_prob_rows, WZ_ls_prob_columns_2d, WZ_frobenius, rng)
+                    C = sketcher.right_project(sketcher.left_project(WZ))
+                    w_left, S, w_right = la.svd(C, full_matrices=False)
+                    V = sketcher.left_project(WZ).T @ (w_left[:, :rank] / S[None, :rank])
 
                     # Estimate lambdas
                     lambdas = []
@@ -84,7 +71,7 @@ def test_randomized_low_rank(method: str):
                         lambdas.append(1 / (S[ell]) ** 2 * np.sum(WZ * np.outer(y, V[:, ell])))
 
                     # Predict
-                    ebv_fkv = Z @ (V @ np.asarray(lambdas)[:, None])
+                    ebv_fkv = sketcher.right_project(Z) @ (w_right.T[:, :rank] @ np.asarray(lambdas)[:, None])
                     ebv_fkv = np.squeeze(ebv_fkv)
 
                     # Compute number of matches
@@ -95,19 +82,13 @@ def test_randomized_low_rank(method: str):
                     data_to_plot["rank"].append(rank)
                     data_to_plot["n_matches"].append(n_matches)
                     data_to_plot["random_state"].append(random_state)
-                    data_to_plot["n_rows"].append(C.shape[0])
-                    data_to_plot["n_cols"].append(C.shape[1])
 
             # Plot
             ax = sns.boxplot(data=data_to_plot, x="rank", y="n_matches", fill=False)
             ax.set_ylim(0, top_size_ebv)
             save_fig(f"test_randomized_low_rank_{method}_c{c}")
-
-            sns.scatterplot(data=data_to_plot, x="rank", y="n_rows")
-            save_fig(f"test_randomized_low_rank_{method}_n_rows_c{c}")
-            sns.scatterplot(data=data_to_plot, x="rank", y="n_cols")
-            save_fig(f"test_randomized_low_rank_{method}_n_cols_c{c}")
     else:
+        data_to_plot = defaultdict(list)
         for rank in ranks:
             # Compute SVD
             if method == "halko":
@@ -299,8 +280,6 @@ def test_cg_halko_low_rank_with_fixed_effects():
 
 
 if __name__ == "__main__":
-    test_cg_halko_low_rank()
-    test_cg_halko_low_rank_with_fixed_effects()
     test_randomized_low_rank("fkv")
-    test_halko_low_rank()
-    test_pinv_low_rank()
+    test_randomized_low_rank("halko")
+    test_randomized_low_rank("full_svd")

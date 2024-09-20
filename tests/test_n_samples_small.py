@@ -14,13 +14,6 @@ logging.basicConfig(format="%(asctime)s %(levelname)s:%(message)s", level=loggin
 path = Path(Path(__file__).parent.resolve(), "data", "full_rank")
 
 
-@pytest.mark.parametrize(
-    "method",
-    [
-        ("ordinary"),
-        ("ridge"),
-    ],
-)
 def test_qi_no_X_n_samples():
     """Test quantum-inspired regression and no fixed effects."""
     # Load data
@@ -39,7 +32,7 @@ def test_qi_no_X_n_samples():
     # Solve using quantum-inspired algorithm
     r = 210
     c = 210
-    n_samples = np.linspace(10,500, num=10)
+    n_samples = np.linspace(10, 500, num=10)
     n_entries_b = 1000
     func = None
     random_state = 2
@@ -47,7 +40,6 @@ def test_qi_no_X_n_samples():
     n_matches = []
 
     for n_sample in n_samples:
-
         n_sample = int(np.ceil(n_sample))
         print(f"n_samples: {n_sample} out of {WZ.shape[0] * WZ.shape[1]}")
 
@@ -58,7 +50,7 @@ def test_qi_no_X_n_samples():
         qi = QILinearEstimator(r, c, rank, n_sample, rng, func=func)
         qi = qi.fit(WZ, y)
 
-        #Compare results
+        # Compare results
         sampled_indices, sampled_ebv = qi.predict_b(Z, n_entries_b)
         df = pd.DataFrame({"ebv_idx_samples": sampled_indices, "ebv_samples": sampled_ebv})
         df_mean = df.groupby("ebv_idx_samples")["ebv_samples"].mean()
@@ -70,6 +62,8 @@ def test_qi_no_X_n_samples():
         n_matches.append(compute_n_matches(ebv, ebv_idx))
 
     assert n_matches == [3, 0, 3, 3, 3, 2, 6, 3, 4, 3]
-        
+
+
 if __name__ == "__main__":
     test_qi_no_X_n_samples()
+

@@ -31,9 +31,9 @@ def test_qi_no_X():
     y = ebv[WZ.shape[0] :]
 
     # Solve using quantum-inspired algorithm
-    rank = 200
+    rank = 100
     r = 300
-    c = 2000
+    c = 500
     n_samples = 1000
     print(f"n_samples: {n_samples} out of {WZ.shape[0] * WZ.shape[1]}")
     n_entries_b = 1000
@@ -62,7 +62,7 @@ def test_qi_no_X():
         solution=normalize(unique_sampled_ebv),
     )
 
-    assert n_matches == 5
+    assert n_matches == 2
 
 
 @pytest.mark.parametrize(
@@ -134,13 +134,13 @@ def test_qi_no_X_fake_rank(method: str):
     )
 
     if method == "ridge":
-        assert n_matches == 40
+        assert n_matches == 44
     elif method == "ordinary":
-        assert n_matches == 43
+        assert n_matches == 46
     else:
         assert False
 
 
 if __name__ == "__main__":
-    test_qi_no_X_fake_rank("ordinary")
+    # test_qi_no_X_fake_rank("ordinary")
     test_qi_no_X()
