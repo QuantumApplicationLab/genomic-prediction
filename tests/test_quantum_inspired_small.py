@@ -31,9 +31,9 @@ def test_qi_no_X():
     y = ebv[WZ.shape[0] :]
 
     # Solve using quantum-inspired algorithm
-    rank = 100
-    r = 300
-    c = 500
+    rank = 200
+    r = 205
+    c = 205
     n_samples = 1000
     print(f"n_samples: {n_samples} out of {WZ.shape[0] * WZ.shape[1]}")
     n_entries_b = 1000
@@ -42,7 +42,7 @@ def test_qi_no_X():
     rng = np.random.RandomState(random_state)
 
     # Solve
-    qi = QILinearEstimator(r, c, rank, n_samples, rng)
+    qi = QILinearEstimator(r, c, rank, n_samples, rng, sketcher_name="halko")
     qi = qi.fit(WZ, y)
     sampled_indices, sampled_ebv = qi.predict_b(Z, n_entries_b)
 
@@ -142,5 +142,4 @@ def test_qi_no_X_fake_rank(method: str):
 
 
 if __name__ == "__main__":
-    # test_qi_no_X_fake_rank("ordinary")
     test_qi_no_X()

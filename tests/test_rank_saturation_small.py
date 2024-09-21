@@ -10,6 +10,7 @@ import seaborn as sns
 from numpy import linalg as la
 from quantum_inspired_algorithms.quantum_inspired import compute_ls_probs
 from quantum_inspired_algorithms.sketching import FKV
+from quantum_inspired_algorithms.sketching import Halko
 from quantum_inspired_algorithms.visualization import compute_n_matches
 from scipy.sparse.linalg import cg
 from sklearn.utils.extmath import randomized_svd
@@ -30,6 +31,7 @@ path = Path(Path(__file__).parent.resolve(), "data", "full_rank")
     [
         ("fkv"),
         ("halko"),
+        ("randomized_svd"),
         ("full_svd"),
     ],
 )
@@ -50,17 +52,24 @@ def test_randomized_low_rank(method: str):
     # Solve using FKV or regular SVD for increasing rank
     ranks = list(range(200, 300, 10))
 
-    if method == "fkv":
+    if method in ["fkv", "halko"]:
         random_states = range(10)
-        WZ_ls_prob_rows, WZ_ls_prob_columns_2d, _, _, WZ_frobenius = compute_ls_probs(WZ)
+        WZ_ls_prob_rows, WZ_ls_prob_columns_2d, WZ_ls_prob_columns, _, WZ_frobenius = compute_ls_probs(WZ)
         r = 500
-        for c in range(1000, 10000, 1000):
+        c_values = range(200, 350, 50)
+        if method == "fkv":
+            c_values = range(1000, 10000, 1000)
+        for c in c_values:
             data_to_plot = defaultdict(list)
             for rank in ranks:
                 for random_state in random_states:
-                    # Approximate SVD using FKV
+                    # Approximate SVD using sketching
                     rng = np.random.RandomState(random_state)
-                    sketcher = FKV(WZ, r, c, WZ_ls_prob_rows, WZ_ls_prob_columns_2d, WZ_frobenius, rng)
+                    if "sketcher_name" == "fkv":
+                        sketcher = FKV(WZ, r, c, WZ_ls_prob_rows, WZ_ls_prob_columns_2d, WZ_frobenius, rng)
+                    else:
+                        sketcher = Halko(WZ, r, c, WZ_ls_prob_rows, WZ_ls_prob_columns, rng)
+
                     C = sketcher.right_project(sketcher.left_project(WZ))
                     w_left, S, w_right = la.svd(C, full_matrices=False)
                     V = sketcher.left_project(WZ).T @ (w_left[:, :rank] / S[None, :rank])
@@ -91,7 +100,7 @@ def test_randomized_low_rank(method: str):
         data_to_plot = defaultdict(list)
         for rank in ranks:
             # Compute SVD
-            if method == "halko":
+            if method == "randomized_svd":
                 _, S, VT = randomized_svd(WZ, n_components=rank, random_state=10)
                 V = VT.T
             elif method == "full_svd":
@@ -280,6 +289,6 @@ def test_cg_halko_low_rank_with_fixed_effects():
 
 
 if __name__ == "__main__":
-    test_randomized_low_rank("fkv")
     test_randomized_low_rank("halko")
+    test_randomized_low_rank("fkv")
     test_randomized_low_rank("full_svd")
