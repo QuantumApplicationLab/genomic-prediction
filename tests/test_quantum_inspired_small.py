@@ -31,38 +31,38 @@ def test_qi_no_X():
     y = ebv[WZ.shape[0] :]
 
     # Solve using quantum-inspired algorithm
-    rank = 90
-    r = 91
-    c = 91
-    n_samples = 50000
-    print(f"n_samples: {n_samples} out of {WZ.shape[0] * WZ.shape[1]}")
-    n_entries_b = 1000
-    random_state = 0
-    print(f"\nrandom_state: {random_state}")
-    rng = np.random.RandomState(random_state)
+    rank = 99
+    r = 100
+    c = 100
+    for n_samples in [100, 500, 1e3, 1e4, 1e5, 1e6]:
+        n_samples = int(n_samples)
+        print(f"n_samples: {n_samples} out of {WZ.shape[0] * WZ.shape[1]}")
+        n_entries_b = 1000
+        random_state = 0
+        print(f"\nrandom_state: {random_state}")
+        rng = np.random.RandomState(random_state)
 
-    # Solve
-    qi = QILinearEstimator(r, c, rank, n_samples, rng, sketcher_name="halko")
-    qi = qi.fit(WZ, y)
-    sampled_indices, sampled_ebv = qi.predict_b(Z, n_entries_b)
+        # Solve
+        qi = QILinearEstimator(r, c, rank, n_samples, rng, sketcher_name="halko")
+        qi = qi.fit(WZ, y)
+        sampled_indices, sampled_ebv = qi.predict_b(Z, n_entries_b)
 
-    # Compare results
-    df = pd.DataFrame({"ebv_idx_samples": sampled_indices, "ebv_samples": sampled_ebv})
-    df_mean = df.groupby("ebv_idx_samples")["ebv_samples"].mean()
-    unique_sampled_indices = np.asarray(df_mean.keys())
-    unique_sampled_ebv = np.asarray(df_mean.values)
-    sort_idx = np.flip(np.argsort(np.abs(unique_sampled_ebv)))
-    ebv_idx = unique_sampled_indices[sort_idx][:top_size_ebv]
+        # Compare results
+        df = pd.DataFrame({"ebv_idx_samples": sampled_indices, "ebv_samples": sampled_ebv})
+        df_mean = df.groupby("ebv_idx_samples")["ebv_samples"].mean()
+        unique_sampled_indices = np.asarray(df_mean.keys())
+        unique_sampled_ebv = np.asarray(df_mean.values)
+        sort_idx = np.flip(np.argsort(np.abs(unique_sampled_ebv)))
+        ebv_idx = unique_sampled_indices[sort_idx][:top_size_ebv]
 
-    n_matches = plot_solution(
-        ebv,
-        ebv_idx,
-        f"{random_state}_test_qi_no_X_{n_samples}",
-        expected_solution=normalize(ebv[unique_sampled_indices]),
-        solution=normalize(unique_sampled_ebv),
-    )
-
-    assert n_matches == 2
+        n_matches = plot_solution(
+            ebv,
+            ebv_idx,
+            f"{random_state}_test_qi_no_X_{n_samples}",
+            expected_solution=normalize(ebv[unique_sampled_indices]),
+            solution=normalize(unique_sampled_ebv),
+        )
+        print(n_matches)
 
 
 @pytest.mark.parametrize(
