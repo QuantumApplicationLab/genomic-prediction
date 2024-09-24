@@ -31,13 +31,13 @@ def test_qi_no_X():
     y = ebv[WZ.shape[0] :]
 
     # Solve using quantum-inspired algorithm
-    rank = 200
-    r = 205
-    c = 205
-    n_samples = 1000
+    rank = 90
+    r = 91
+    c = 91
+    n_samples = 50000
     print(f"n_samples: {n_samples} out of {WZ.shape[0] * WZ.shape[1]}")
     n_entries_b = 1000
-    random_state = 11
+    random_state = 0
     print(f"\nrandom_state: {random_state}")
     rng = np.random.RandomState(random_state)
 
