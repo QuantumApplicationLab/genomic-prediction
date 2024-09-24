@@ -50,52 +50,73 @@ def test_randomized_low_rank(method: str):
     y = ebv[WZ.shape[0] :]
 
     # Solve using FKV or regular SVD for increasing rank
-    ranks = list(range(200, 300, 10))
+    step = 10
+    ranks = list(range(step, WZ.shape[0] + step, step))
 
     if method in ["fkv", "halko"]:
-        random_states = range(10)
         WZ_ls_prob_rows, WZ_ls_prob_columns_2d, WZ_ls_prob_columns, _, WZ_frobenius = compute_ls_probs(WZ)
-        r = 500
-        c_values = range(200, 350, 50)
+        random_states = range(10)
+
         if method == "fkv":
+            r_values = [500]
             c_values = range(1000, 10000, 1000)
-        for c in c_values:
-            data_to_plot = defaultdict(list)
-            for rank in ranks:
-                for random_state in random_states:
-                    # Approximate SVD using sketching
-                    rng = np.random.RandomState(random_state)
-                    if "sketcher_name" == "fkv":
-                        sketcher = FKV(WZ, r, c, WZ_ls_prob_rows, WZ_ls_prob_columns_2d, WZ_frobenius, rng)
-                    else:
-                        sketcher = Halko(WZ, r, c, WZ_ls_prob_rows, WZ_ls_prob_columns, rng)
+        elif method == "halko":
+            r_values = ["auto", 200, 300, 400, 500]
+            c_values = ["auto"]
 
-                    C = sketcher.right_project(sketcher.left_project(WZ))
-                    w_left, S, w_right = la.svd(C, full_matrices=False)
-                    V = sketcher.left_project(WZ).T @ (w_left[:, :rank] / S[None, :rank])
+        for r in r_values:
+            for c in c_values:
+                data_to_plot = defaultdict(list)
+                for rank in ranks:
+                    for random_state in random_states:
+                        # Approximate SVD using sketching
+                        rng = np.random.RandomState(random_state)
+                        if method == "fkv":
+                            if isinstance(r, int) and isinstance(c, int):
+                                sketcher = FKV(WZ, r, c, WZ_ls_prob_rows, WZ_ls_prob_columns_2d, WZ_frobenius, rng)
+                            else:
+                                assert False
+                        elif method == "halko":
+                            if r == "auto":
+                                r_auto = rank
+                            elif isinstance(r, int):
+                                r_auto = r
+                            else:
+                                assert False
+                            if c == "auto":
+                                c_auto = rank
+                            elif isinstance(c, int):
+                                c_auto = c
+                            else:
+                                assert False
+                            sketcher = Halko(WZ, r_auto, c_auto, WZ_ls_prob_rows, WZ_ls_prob_columns, rng)
 
-                    # Estimate lambdas
-                    lambdas = []
-                    for ell in range(rank):
-                        lambdas.append(1 / (S[ell]) ** 2 * np.sum(WZ * np.outer(y, V[:, ell])))
+                        C = sketcher.right_project(sketcher.left_project(WZ))
+                        w_left, S, w_right = la.svd(C, full_matrices=False)
+                        V = sketcher.left_project(WZ).T @ (w_left[:, :rank] / S[None, :rank])
 
-                    # Predict
-                    ebv_fkv = sketcher.right_project(Z) @ (w_right.T[:, :rank] @ np.asarray(lambdas)[:, None])
-                    ebv_fkv = np.squeeze(ebv_fkv)
+                        # Estimate lambdas
+                        lambdas = []
+                        for ell in range(rank):
+                            lambdas.append(1 / (S[ell]) ** 2 * np.sum(WZ * np.outer(y, V[:, ell])))
 
-                    # Compute number of matches
-                    ebv_idx = find_top_indices(np.abs(ebv_fkv), top_size_ebv)
-                    n_matches = compute_n_matches(ebv, ebv_idx)
+                        # Predict
+                        ebv_fkv = sketcher.right_project(Z) @ (w_right.T[:, :rank] @ np.asarray(lambdas)[:, None])
+                        ebv_fkv = np.squeeze(ebv_fkv)
 
-                    # Save data for plotting
-                    data_to_plot["rank"].append(rank)
-                    data_to_plot["n_matches"].append(n_matches)
-                    data_to_plot["random_state"].append(random_state)
+                        # Compute number of matches
+                        ebv_idx = find_top_indices(np.abs(ebv_fkv), top_size_ebv)
+                        n_matches = compute_n_matches(ebv, ebv_idx)
 
-            # Plot
-            ax = sns.boxplot(data=data_to_plot, x="rank", y="n_matches", fill=False)
-            ax.set_ylim(0, top_size_ebv)
-            save_fig(f"test_randomized_low_rank_{method}_c{c}")
+                        # Save data for plotting
+                        data_to_plot["rank"].append(rank)
+                        data_to_plot["n_matches"].append(n_matches)
+                        data_to_plot["random_state"].append(random_state)
+
+                # Plot
+                ax = sns.boxplot(data=data_to_plot, x="rank", y="n_matches", fill=False)
+                ax.set_ylim(0, top_size_ebv)
+                save_fig(f"test_randomized_low_rank_{method}_r{r}_c{c}")
     else:
         data_to_plot = defaultdict(list)
         for rank in ranks:
@@ -108,8 +129,6 @@ def test_randomized_low_rank(method: str):
                 V2 = WZ.T @ (U[:, :rank] / S[None, :rank])
                 V = V.T[:, :rank]
                 assert np.allclose(V2, V)
-            else:  # invalid method
-                assert False
 
             # Estimate lambdas
             lambdas = []
@@ -290,5 +309,3 @@ def test_cg_halko_low_rank_with_fixed_effects():
 
 if __name__ == "__main__":
     test_randomized_low_rank("halko")
-    test_randomized_low_rank("fkv")
-    test_randomized_low_rank("full_svd")
