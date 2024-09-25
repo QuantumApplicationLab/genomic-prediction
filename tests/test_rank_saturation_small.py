@@ -68,6 +68,10 @@ def test_randomized_low_rank(method: str):
             for c in c_values:
                 data_to_plot = defaultdict(list)
                 for rank in ranks:
+                    if isinstance(r, int) and rank > r:
+                        continue
+                    if isinstance(c, int) and rank > c:
+                        continue
                     for random_state in random_states:
                         # Approximate SVD using sketching
                         rng = np.random.RandomState(random_state)
@@ -116,7 +120,7 @@ def test_randomized_low_rank(method: str):
                 # Plot
                 ax = sns.boxplot(data=data_to_plot, x="rank", y="n_matches", fill=False)
                 ax.set_ylim(0, top_size_ebv)
-                save_fig(f"test_randomized_low_rank_{method}_r{r}_c{c}")
+                save_fig(f"test_randomized_low_rank_{method}_r_{r}-c_{c}")
     else:
         data_to_plot = defaultdict(list)
         for rank in ranks:
@@ -262,22 +266,27 @@ def test_cg_halko_low_rank():
     y = ebv[WZ.shape[0] :]
 
     # Reduce dimensionality
-    Q = get_low_dimensional_projector(WZ, n_components=210, random_state=10)
-    Z_reduced = Z @ Q
+    WZ_ls_prob_rows, _, WZ_ls_prob_columns, _, _ = compute_ls_probs(WZ)
+    rng = np.random.RandomState(10)
+    sketcher = Halko(WZ, 200, 200, WZ_ls_prob_rows, WZ_ls_prob_columns, rng)
+    WZ_sketch = sketcher.right_project(sketcher.left_project(WZ))
+    Z_sketch = sketcher.right_project(Z)
+    y_sketch = sketcher.left_project(y)
 
     # Construct normal equations
-    A, b = construct_A_b_no_X(W, Z_reduced, y)
+    W = np.eye(WZ_sketch.shape[0])  # non-phenotyped animals have already been left out
+    A, b = construct_A_b_no_X(W, WZ_sketch, y_sketch)
 
     # Solve using PCG
-    P = np.diag(np.diag(A))
-    x_cg, _ = cg(A, b, M=P, atol=1e-5)
-    ebv_cg = Z_reduced @ x_cg
+    for P in [None, np.diag(np.diag(A))]:
+        x_cg, _ = cg(A, b, M=P, atol=1e-5)
+        ebv_cg = Z_sketch @ x_cg
 
-    # Compute number of matches
-    ebv_idx = find_top_indices(np.abs(ebv_cg), top_size_ebv)
-    n_matches = compute_n_matches(ebv, ebv_idx)
+        # Compute number of matches
+        ebv_idx = find_top_indices(np.abs(ebv_cg), top_size_ebv)
+        n_matches = compute_n_matches(ebv, ebv_idx)
 
-    assert n_matches == 40
+        assert n_matches == 39
 
 
 def test_cg_halko_low_rank_with_fixed_effects():
@@ -289,22 +298,29 @@ def test_cg_halko_low_rank_with_fixed_effects():
     WZ = W @ Z
 
     # Reduce dimensionality
-    Q = get_low_dimensional_projector(WZ, n_components=210, random_state=10)
-    Z_reduced = Z @ Q
+    WZ_ls_prob_rows, _, WZ_ls_prob_columns, _, _ = compute_ls_probs(WZ)
+    rng = np.random.RandomState(10)
+    sketcher = Halko(WZ, 500, 500, WZ_ls_prob_rows, WZ_ls_prob_columns, rng)
+
+    WZ_sketch = sketcher.right_project(sketcher.left_project(WZ))
+    Z_sketch = sketcher.right_project(Z)
+    y_sketch = sketcher.left_project(y)
+    X_sketch = sketcher.left_project(X)
 
     # Construct normal equations
-    A, b = construct_A_b(W, Z_reduced, X, y)
+    W = np.eye(WZ_sketch.shape[0])  # non-phenotyped animals have already been left out
+    A, b = construct_A_b(W, WZ_sketch, X_sketch, y_sketch)
 
     # Solve using PCG
-    P = np.diag(np.diag(A))
-    x_cg, _ = cg(A, b, M=P, atol=1e-5)
-    ebv_cg = Z_reduced @ x_cg[X.shape[1] :]
+    for P in [None, np.diag(np.diag(A))]:
+        x_cg, _ = cg(A, b, M=P, atol=1e-5)
+        ebv_cg = Z_sketch @ x_cg[X.shape[1] :]
 
-    # Compute number of matches
-    ebv_idx = find_top_indices(np.abs(ebv_cg), top_size_ebv)
-    n_matches = compute_n_matches(ebv, ebv_idx)
+        # Compute number of matches
+        ebv_idx = find_top_indices(np.abs(ebv_cg), top_size_ebv)
+        n_matches = compute_n_matches(ebv, ebv_idx)
 
-    assert n_matches == 11
+        assert n_matches == 31
 
 
 if __name__ == "__main__":
