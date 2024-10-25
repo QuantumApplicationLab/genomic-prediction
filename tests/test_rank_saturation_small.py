@@ -93,7 +93,7 @@ def test_randomized_low_rank(method: str):
                                 c_auto = c
                             else:
                                 assert False
-                            sketcher = Halko(WZ, r_auto, c_auto, WZ_ls_prob_rows, WZ_ls_prob_columns, rng)
+                            sketcher = Halko(WZ, r_auto, c_auto, WZ_ls_prob_columns, rng)
 
                         C = sketcher.right_project(sketcher.left_project(WZ))
                         w_left, S, w_right = la.svd(C, full_matrices=False)
@@ -266,9 +266,9 @@ def test_cg_halko_low_rank():
     y = ebv[WZ.shape[0] :]
 
     # Reduce dimensionality
-    WZ_ls_prob_rows, _, WZ_ls_prob_columns, _, _ = compute_ls_probs(WZ)
+    _, _, WZ_ls_prob_columns, _, _ = compute_ls_probs(WZ)
     rng = np.random.RandomState(10)
-    sketcher = Halko(WZ, 200, 200, WZ_ls_prob_rows, WZ_ls_prob_columns, rng)
+    sketcher = Halko(WZ, 200, 200, WZ_ls_prob_columns, rng)
     WZ_sketch = sketcher.right_project(sketcher.left_project(WZ))
     Z_sketch = sketcher.right_project(Z)
     y_sketch = sketcher.left_project(y)
@@ -298,9 +298,9 @@ def test_cg_halko_low_rank_with_fixed_effects():
     WZ = W @ Z
 
     # Reduce dimensionality
-    WZ_ls_prob_rows, _, WZ_ls_prob_columns, _, _ = compute_ls_probs(WZ)
+    _, _, WZ_ls_prob_columns, _, _ = compute_ls_probs(WZ)
     rng = np.random.RandomState(10)
-    sketcher = Halko(WZ, 500, 500, WZ_ls_prob_rows, WZ_ls_prob_columns, rng)
+    sketcher = Halko(WZ, 500, 500, WZ_ls_prob_columns, rng)
 
     WZ_sketch = sketcher.right_project(sketcher.left_project(WZ))
     Z_sketch = sketcher.right_project(Z)
