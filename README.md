@@ -13,25 +13,25 @@ This repository uses the algorithms defined in the [quantum-inspired-algorithms]
 
 To install genomic_prediction from GitHub repository, do:
 
-```console
+```shell
 $ git clone git@github.com:QuantumApplicationLab/genomic-prediction.git
 $ cd genomic-prediction
 $ python -m pip install .
 ```
 or: 
-```console
+```shell
 $ pip install https://github.com/QuantumApplicationLab/genomic-prediction.git
 ```
 
 Then, one must clone the [quantum-inspired-algorithms](https://github.com/QuantumApplicationLab/quantum-inspired-algorithms) repository and installing the package locally or to a virtual environment:
 
-```
+```shell
 $ git clone git@github.com:QuantumApplicationLab/quantum-inspired-algorithms.git
 $ cd quantum-inspired-algorithms
 $ python -m pip install .
 ```
 or:
-```console
+```shell
 $ pip install https://github.com/QuantumApplicationLab/quantum-inspired-algorithms.git
 ```
 
@@ -49,8 +49,16 @@ The algorithm follows the basic following form:
 
 ## Examples
 
-This repository contains experiments in the `test` folder. The experiments produced are defined in each file.   
+This repository contains the quantum inspired experiments in the `test/test_quantum_inspired_small.py`. An example experiment is seen in `test_qi_no_X` where the quantum inspired method is used to estimate the best breeding values without a fixed effect. 
 
+Running,
+```shell
+$ python test/est_quantum_inspired_small.py
+```
+generates visualizations of the animals predicted to be among the top fifty for breeding values using Halko's method. Below is an example of when 1000 Monte Carlo iterations are used. Only the top 4 animals are selected out of the top 50.
+![1000](docs/test_qi_no_X_1000_matches.png)
+However, when 100000 Monte Carlo iterations are used, 15 animals are selected out of the top 50. 
+![100000](docs/test_qi_no_X_100000_matches.png)
 
 ## Contributing
 
