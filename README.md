@@ -1,11 +1,11 @@
 # Quantum Inspired Genomic Prediction
 
-This repository contains quantum-inspired methods for fitting and making predictions using genomic models. The algorithms found in this repository have been developed by the Quantum Application Lab
+This repository contains quantum-inspired methods for fitting and making predictions using genomic models. The algorithms found in this repository have been developed by the Quantum Application Lab.
 
 The project setup is documented in [project_setup.md](project_setup.md).
 
 ## Overview
-Genomic prediction is usually modelled using single nucleotide polymorphism best linear unbiased prediction (SNPBLUP) method. This model combines genomic and pedigree information about a sampled set of animals, and allows one to find the best animals to breed for an objective (e.g., more milk yield for cows, higher egg yield for chickens, etc.). An example paper can be found [here](https://pure.tudelft.nl/ws/portalfiles/portal/89307446/s12711_021_00626_1.pdf). 
+Genomic prediction is usually modelled using the single nucleotide polymorphism best linear unbiased prediction (SNPBLUP) method. This model combines genomic and pedigree information about a sampled set of animals, and allows one to find the best animals to breed for an objective (e.g., more milk yield for cows, higher egg yield for chickens, etc.). An example paper can be found [here](https://pure.tudelft.nl/ws/portalfiles/portal/89307446/s12711_021_00626_1.pdf). 
 
 This repository uses the algorithms defined in the [quantum-inspired-algorithms](https://github.com/QuantumApplicationLab/quantum-inspired-algorithms) package, to evaluate this model using quantum-inspired methods. 
 
@@ -23,7 +23,7 @@ or:
 $ pip install https://github.com/QuantumApplicationLab/genomic-prediction.git
 ```
 
-Then, one must clone the [quantum-inspired-algorithms](https://github.com/QuantumApplicationLab/quantum-inspired-algorithms) repository and installing the package locally or to a virtual environment:
+Then, one must clone the [quantum-inspired-algorithms](https://github.com/QuantumApplicationLab/quantum-inspired-algorithms) repository and install the package locally or on a virtual environment:
 
 ```shell
 $ git clone git@github.com:QuantumApplicationLab/quantum-inspired-algorithms.git
@@ -49,7 +49,7 @@ The algorithm follows the following form:
 
 ## Examples
 
-This repository contains the quantum-inspired experiments in the `test/test_quantum_inspired_small.py`. An example experiment is seen in `test_qi_no_X` where the quantum inspired method is used to estimate the best breeding values without a fixed effect. 
+This repository contains quantum-inspired experiments in `test/test_quantum_inspired_small.py`. An example experiment is seen in `test_qi_no_X` where the quantum-inspired method is used to estimate the best breeding values without fixed effects. 
 
 Running,
 ```shell
