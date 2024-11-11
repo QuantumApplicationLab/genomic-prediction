@@ -51,9 +51,9 @@ The algorithm follows the following form:
 
 Quantum-inspired experiments can be found in `tests/test_quantum_inspired_small.py`. For example, in `test_qi_no_X`, breeding values are estimated without fixed effects.
 In particular, this experiment generates visualizations of the animals predicted to be among the top fifty using Halko's method. Below is an example of when 1000 Monte Carlo iterations are used. Only the top 4 animals are correctly selected out of the top 50.
-![1000](docs/test_qi_no_X_1000_matches.png)
+![1000](docs/figures/test_qi_no_X_1000_matches.png)
 However, when 100,000 Monte Carlo iterations are used, 15 animals are correctly selected out of the top 50. 
-![100000](docs/test_qi_no_X_100000_matches.png)
+![100000](docs/figures/test_qi_no_X_100000_matches.png)
 
 ## Contributing
 
